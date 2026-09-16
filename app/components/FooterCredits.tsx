@@ -1,8 +1,12 @@
 import React from "react";
 import { KiloLogo } from "./KiloLogo";
-import { ShieldCheck, ExternalLink, Globe, Store, User } from "lucide-react";
+import { ShieldCheck, ExternalLink, Store, User } from "lucide-react";
 
-export function FooterCredits() {
+interface FooterCreditsProps {
+  onOpenLegal?: (tab: "privacy" | "terms") => void;
+}
+
+export function FooterCredits({ onOpenLegal }: FooterCreditsProps) {
   return (
     <footer className="w-full border-t border-slate-800/80 bg-slate-950/80 mt-20 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -10,9 +14,9 @@ export function FooterCredits() {
         <div className="flex flex-col items-center md:items-start gap-2 text-center md:text-left">
           <KiloLogo className="w-7 h-7" textClassName="text-lg font-bold" />
           <p className="text-xs text-slate-400 max-w-sm">
-            High-Speed Media Compression & Format Conversion for Developers and E-Commerce Merchants.
+            High-Speed Media Compression &amp; Format Conversion for Developers and E-Commerce Merchants.
           </p>
-          <div className="flex items-center gap-2 pt-1 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1 text-emerald-400">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>100% Private</span>
@@ -33,6 +37,22 @@ export function FooterCredits() {
               </svg>
               <span>GitHub</span>
             </a>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => onOpenLegal?.("privacy")}
+              className="hover:text-emerald-400 transition-colors underline underline-offset-2"
+            >
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => onOpenLegal?.("terms")}
+              className="hover:text-emerald-400 transition-colors underline underline-offset-2"
+            >
+              Terms of Service
+            </button>
           </div>
         </div>
 
