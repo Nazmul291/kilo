@@ -19,12 +19,15 @@ export function meta({}: Route.MetaArgs) {
       content:
         "Transform heavy megabyte (MB) assets into fast-loading kilobytes (KB). High-speed media compression and format conversion sponsored by Stockly.",
     },
+    { name: "robots", content: "index, follow" },
+    { name: "keywords", content: "image compressor, media compression, webp converter, png to webp, jpeg optimizer, favicon ico generator, client-side compressor" },
     { property: "og:title", content: "Kilo — Turn Heavy MBs into Lightweight KBs" },
     {
       property: "og:description",
       content:
         "High-performance media compression. Convert and compress WebP, PNG, JPEG, and ICO easily.",
     },
+    { property: "og:url", content: "https://kilo.nazmulcodes.org/" },
     { property: "og:type", content: "website" },
   ];
 }

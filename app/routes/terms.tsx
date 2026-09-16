@@ -11,7 +11,9 @@ export function meta({}: Route.MetaArgs) {
       content:
         "Terms of Service for Kilo media compression and conversion tool. Read our usage guidelines, user ownership, and service terms.",
     },
+    { name: "robots", content: "index, follow" },
     { property: "og:title", content: "Terms of Service — Kilo" },
+    { property: "og:url", content: "https://kilo.nazmulcodes.org/terms" },
     { property: "og:type", content: "website" },
   ];
 }
