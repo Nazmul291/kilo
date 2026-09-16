@@ -21,6 +21,13 @@ export function HeaderNavigation() {
               Compressor
             </a>
             <a
+              href="/shopify"
+              className="px-3 py-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 border border-emerald-500/20 transition-all font-semibold flex items-center gap-1.5"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Shopify Sync</span>
+            </a>
+            <a
               href="/story"
               className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-slate-900 transition-colors"
             >
