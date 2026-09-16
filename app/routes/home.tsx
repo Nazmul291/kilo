@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import type { Route } from "./+types/home";
 import { HeaderNavigation } from "../components/HeaderNavigation";
 import { HeroSection } from "../components/HeroSection";
@@ -10,7 +9,6 @@ import { AdGateModal } from "../components/AdGateModal";
 import { ResultDownloadCard } from "../components/ResultDownloadCard";
 import { StocklyFeaturedCard } from "../components/StocklyFeaturedCard";
 import { FooterCredits } from "../components/FooterCredits";
-import { LegalModal } from "../components/LegalModal";
 import { CookieConsentBanner } from "../components/CookieConsentBanner";
 
 export function meta({}: Route.MetaArgs) {
@@ -32,14 +30,6 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [isLegalOpen, setIsLegalOpen] = useState(false);
-  const [legalTab, setLegalTab] = useState<"privacy" | "terms">("privacy");
-
-  const openLegal = (tab: "privacy" | "terms") => {
-    setLegalTab(tab);
-    setIsLegalOpen(true);
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-300">
       {/* Component 1: HeaderNavigation */}
@@ -71,18 +61,11 @@ export default function Home() {
         <StocklyFeaturedCard />
       </main>
 
-      {/* Component 10: FooterCredits */}
-      <FooterCredits onOpenLegal={openLegal} />
-
-      {/* Legal & Privacy Policy Modal */}
-      <LegalModal
-        isOpen={isLegalOpen}
-        onClose={() => setIsLegalOpen(false)}
-        initialTab={legalTab}
-      />
+      {/* Component 10: FooterCredits (contains crawlable /privacy and /terms links) */}
+      <FooterCredits />
 
       {/* GDPR / AdSense Cookie Consent Banner */}
-      <CookieConsentBanner onOpenPrivacy={() => openLegal("privacy")} />
+      <CookieConsentBanner />
     </div>
   );
 }

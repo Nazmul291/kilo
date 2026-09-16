@@ -2,11 +2,7 @@ import React from "react";
 import { KiloLogo } from "./KiloLogo";
 import { ShieldCheck, ExternalLink, Store, User } from "lucide-react";
 
-interface FooterCreditsProps {
-  onOpenLegal?: (tab: "privacy" | "terms") => void;
-}
-
-export function FooterCredits({ onOpenLegal }: FooterCreditsProps) {
+export function FooterCredits() {
   return (
     <footer className="w-full border-t border-slate-800/80 bg-slate-950/80 mt-20 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -38,21 +34,19 @@ export function FooterCredits({ onOpenLegal }: FooterCreditsProps) {
               <span>GitHub</span>
             </a>
             <span>•</span>
-            <button
-              type="button"
-              onClick={() => onOpenLegal?.("privacy")}
+            <a
+              href="/privacy"
               className="hover:text-emerald-400 transition-colors underline underline-offset-2"
             >
               Privacy Policy
-            </button>
+            </a>
             <span>•</span>
-            <button
-              type="button"
-              onClick={() => onOpenLegal?.("terms")}
+            <a
+              href="/terms"
               className="hover:text-emerald-400 transition-colors underline underline-offset-2"
             >
               Terms of Service
-            </button>
+            </a>
           </div>
         </div>
 

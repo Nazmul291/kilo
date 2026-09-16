@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Cookie, ShieldCheck, X } from "lucide-react";
+import { Cookie, X } from "lucide-react";
 
-interface CookieConsentBannerProps {
-  onOpenPrivacy: () => void;
-}
-
-export function CookieConsentBanner({ onOpenPrivacy }: CookieConsentBannerProps) {
+export function CookieConsentBanner() {
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
@@ -59,13 +55,12 @@ export function CookieConsentBanner({ onOpenPrivacy }: CookieConsentBannerProps)
               >
                 Essential Only
               </button>
-              <button
-                type="button"
-                onClick={onOpenPrivacy}
+              <a
+                href="/privacy"
                 className="px-2 py-1.5 text-slate-400 hover:text-emerald-400 font-semibold text-xs underline underline-offset-2 transition-colors"
               >
                 Learn More
-              </button>
+              </a>
             </div>
           </div>
 
