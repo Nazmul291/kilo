@@ -7,25 +7,55 @@ export function HeaderNavigation() {
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Left: Kilo Logo */}
-        <a href="/" className="flex items-center gap-2 group">
-          <KiloLogo />
-        </a>
+        <div className="flex items-center gap-8">
+          <a href="/" className="flex items-center gap-2 group">
+            <KiloLogo />
+          </a>
+
+          {/* Desktop Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1 text-xs font-medium text-slate-400">
+            <a
+              href="/"
+              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-slate-900 transition-colors"
+            >
+              Compressor
+            </a>
+            <a
+              href="/story"
+              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-slate-900 transition-colors"
+            >
+              Our Story
+            </a>
+            <a
+              href="/blog"
+              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-slate-900 transition-colors"
+            >
+              Guides &amp; Blog
+            </a>
+            <a
+              href="/research"
+              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-slate-900 transition-colors"
+            >
+              Research
+            </a>
+          </nav>
+        </div>
 
         {/* Right: Powered by NazmulCodes */}
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <a
             href="https://www.nazmulcodes.org/"
             target="_blank"
             rel="noopener noreferrer"
             title="NazmulCodes — Senior Full-Stack & Shopify Engineer"
-            className="group flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-300 bg-slate-900/80 border border-slate-700/60 hover:border-emerald-500/50 hover:bg-slate-800 transition-all duration-200"
+            className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium text-slate-300 bg-slate-900/80 border border-slate-700/60 hover:border-emerald-500/50 hover:bg-slate-800 transition-all duration-200"
           >
             <img
               src="/nazmulcodes-logo.svg"
               alt="NazmulCodes Logo"
               className="w-4 h-4 rounded-sm object-contain group-hover:scale-110 transition-transform"
             />
-            <span>
+            <span className="hidden sm:inline">
               Powered by{" "}
               <strong className="text-white font-semibold group-hover:text-emerald-300 transition-colors">
                 NazmulCodes

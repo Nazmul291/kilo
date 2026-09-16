@@ -19,6 +19,27 @@ export function FooterCredits() {
             </span>
             <span>•</span>
             <a
+              href="/story"
+              className="hover:text-emerald-400 transition-colors underline underline-offset-2"
+            >
+              Our Story
+            </a>
+            <span>•</span>
+            <a
+              href="/blog"
+              className="hover:text-emerald-400 transition-colors underline underline-offset-2"
+            >
+              Guides &amp; Blog
+            </a>
+            <span>•</span>
+            <a
+              href="/research"
+              className="hover:text-emerald-400 transition-colors underline underline-offset-2"
+            >
+              Research
+            </a>
+            <span>•</span>
+            <a
               href="https://github.com/Nazmul291/kilo"
               target="_blank"
               rel="noopener noreferrer"
