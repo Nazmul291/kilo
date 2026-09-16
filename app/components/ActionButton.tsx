@@ -33,7 +33,7 @@ export function ActionButton() {
         {isBusy ? (
           <>
             <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-            <span>Processing In-Browser Memory...</span>
+            <span>Optimizing Image...</span>
           </>
         ) : (
           <>
@@ -47,7 +47,7 @@ export function ActionButton() {
       </button>
 
       <p className="text-center text-[11px] text-slate-500 mt-2">
-        Zero server footprint • Private in-browser execution
+        100% Private • Instant Download
       </p>
     </div>
   );

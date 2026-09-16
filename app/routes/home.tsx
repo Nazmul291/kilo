@@ -12,17 +12,17 @@ import { FooterCredits } from "../components/FooterCredits";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Kilo — 100% Client-Side Media Compression & Format Converter" },
+    { title: "Kilo — Fast Media Compression & Format Converter" },
     {
       name: "description",
       content:
-        "Transform heavy megabyte (MB) assets into fast-loading kilobytes (KB). 100% client-side, zero-server-cost image compression and format conversion sponsored by Stockly.",
+        "Transform heavy megabyte (MB) assets into fast-loading kilobytes (KB). High-speed media compression and format conversion sponsored by Stockly.",
     },
     { property: "og:title", content: "Kilo — Turn Heavy MBs into Lightweight KBs" },
     {
       property: "og:description",
       content:
-        "Private in-browser media compression. Convert and compress WebP, PNG, JPEG, and ICO without sending files to any server.",
+        "High-performance media compression. Convert and compress WebP, PNG, JPEG, and ICO easily.",
     },
     { property: "og:type", content: "website" },
   ];

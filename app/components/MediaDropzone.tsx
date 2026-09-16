@@ -69,7 +69,7 @@ export function MediaDropzone() {
               : "border-slate-700/80 bg-slate-900/40 hover:border-slate-500 hover:bg-slate-900/70"
           }`}
         >
-          {/* Subtle icon container */}
+          {/* Icon container */}
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 flex items-center justify-center text-slate-300 group-hover:scale-110 group-hover:text-emerald-400 transition-all duration-300 shadow-inner">
             <UploadCloud className="w-8 h-8" />
           </div>
@@ -78,11 +78,11 @@ export function MediaDropzone() {
             Drag & Drop your image here, or <span className="text-emerald-400 underline underline-offset-4 group-hover:text-emerald-300">browse</span>
           </h3>
           <p className="text-sm text-slate-400 max-w-md mx-auto mb-4">
-            Supports JPEG, PNG, WebP, AVIF, SVG, GIF, and ICO. 100% processed locally in your browser memory.
+            Supports JPEG, PNG, WebP, AVIF, SVG, GIF, and ICO formats.
           </p>
 
           <div className="inline-flex items-center gap-3 text-xs text-slate-500">
-            <span>• No server uploads</span>
+            <span>• 100% Private</span>
             <span>• No file size limits</span>
             <span>• Instant conversions</span>
           </div>
@@ -127,14 +127,14 @@ export function MediaDropzone() {
               {processingState === "analyzing" && (
                 <div className="mt-2 text-xs text-amber-400 flex items-center justify-center sm:justify-start gap-1">
                   <div className="w-2.5 h-2.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                  <span>Analyzing magic byte signature...</span>
+                  <span>Checking image properties...</span>
                 </div>
               )}
 
               {fileAnalysis?.isValidImage && processingState !== "analyzing" && (
                 <div className="mt-2 text-xs text-emerald-400 flex items-center justify-center sm:justify-start gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Verified format via magic bytes signature</span>
+                  <span>Verified format</span>
                 </div>
               )}
             </div>

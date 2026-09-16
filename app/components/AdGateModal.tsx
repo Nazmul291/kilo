@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useKiloStore } from "../lib/store";
-import { X, ShieldAlert, Sparkles, Check } from "lucide-react";
+import { X, Sparkles, Check, ExternalLink } from "lucide-react";
 
 export function AdGateModal() {
   const processingState = useKiloStore((state) => state.processingState);
@@ -53,7 +53,7 @@ export function AdGateModal() {
             Your file is ready to save!
           </h3>
           <p className="text-xs text-slate-400">
-            Kilo is 100% free and client-side, supported by our sponsors.
+            Kilo is 100% free, supported by Stockly.
           </p>
         </div>
 
@@ -63,9 +63,8 @@ export function AdGateModal() {
             className="w-[300px] h-[250px] rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center p-4 text-center select-none overflow-hidden relative"
             id="ad-slot-container"
           >
-            {/* Google AdSense placeholder container */}
             <div className="absolute top-2 right-2 text-[9px] font-mono text-slate-600 uppercase">
-              Ad Placement (300x250)
+              Featured Sponsor
             </div>
 
             <div className="space-y-3">
@@ -73,19 +72,32 @@ export function AdGateModal() {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-300">Shopify Inventory Automation</p>
-                <p className="text-[11px] text-slate-400 mt-1 max-w-[220px]">
-                  Never lose a sale to stockouts. Sync multi-location Shopify inventory with Stockly.
+                <p className="text-xs font-semibold text-slate-200">Shopify Inventory Automation</p>
+                <p className="text-[11px] text-slate-400 mt-1 max-w-[230px]">
+                  Never lose a sale to stockouts. Track and sync multi-location Shopify inventory with Stockly.
                 </p>
               </div>
-              <a
-                href="https://apps.shopify.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block text-xs font-bold text-emerald-400 underline underline-offset-4 hover:text-emerald-300"
-              >
-                Learn more on Shopify App Store →
-              </a>
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <a
+                  href="https://stockly.nazmulcodes.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-emerald-400 hover:text-emerald-300 underline underline-offset-4 flex items-center gap-1"
+                >
+                  <span>Web App</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                <span className="text-slate-600">•</span>
+                <a
+                  href="https://apps.shopify.com/stock-alert-4"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-sky-400 hover:text-sky-300 underline underline-offset-4 flex items-center gap-1"
+                >
+                  <span>Shopify Store</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -107,7 +119,7 @@ export function AdGateModal() {
                 <span>Continue to Download Now</span>
               </>
             ) : (
-              <span>Your download will unlock in {adTimer}s... (Click to skip)</span>
+              <span>Your download unlocks in {adTimer}s... (Click to skip)</span>
             )}
           </button>
         </div>
