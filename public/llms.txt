@@ -1,0 +1,28 @@
+# Kilo
+
+> Kilo is an ultra-fast, in-memory client-side image compression and modern format converter web application. It transforms heavy megabyte (MB) assets into lightweight, high-performance kilobytes (KB) directly in the browser with zero server storage and complete user privacy.
+
+Kilo is engineered for web developers, designers, and e-commerce merchants (including Shopify store owners). It provides lossless and lossy compression for WebP, PNG, JPEG, AVIF, and multi-resolution Windows Favicon (.ICO) generation.
+
+## Key Features
+
+- In-Memory Processing: 100% client-side compression using HTML5 Canvas and browser APIs. Files never leave the user device.
+- Zero Server Storage: Zero data retention, fully GDPR and CCPA compliant by design.
+- Multi-Format Support: Compress and convert between WebP, PNG, JPEG, SVG, AVIF, and ICO.
+- Shopify Integration: Streamline product imagery and asset optimization for Shopify merchants via Stockly.
+- Responsive & Light: Built on React Router v7 with zero bloat and near-instant load times.
+
+## Pages & Documentation
+
+- [Image Compressor](https://kilo.nazmulcodes.org/): Primary client-side media compression tool and format converter.
+- [Shopify Sync](https://kilo.nazmulcodes.org/shopify): Dedicated tools and catalog synchronization for Shopify merchants.
+- [Our Story](https://kilo.nazmulcodes.org/story): The engineering philosophy, benchmarks, and story behind Kilo.
+- [Guides & Blog](https://kilo.nazmulcodes.org/blog): Educational articles on image compression algorithms and Core Web Vitals.
+- [Performance Research](https://kilo.nazmulcodes.org/research): Empirical research comparing WebP, AVIF, PNG, and JPEG performance.
+- [Privacy Policy](https://kilo.nazmulcodes.org/privacy): Legal disclosure of client-side architecture and zero-tracking storage policy.
+- [Terms of Service](https://kilo.nazmulcodes.org/terms): Usage terms, open guidelines, and operational standards.
+
+## Optional & Developer Resources
+
+- [Stockly](https://stockly.nazmulcodes.org/): Multi-location inventory management and stock automation partner.
+- [GitHub](https://github.com/Nazmul291/kilo): Source code, issue tracker, and contribution guide.

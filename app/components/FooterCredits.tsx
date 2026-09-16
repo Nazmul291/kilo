@@ -12,7 +12,7 @@ export function FooterCredits() {
           <p className="text-xs text-slate-400 max-w-sm">
             High-Speed Media Compression &amp; Format Conversion for Developers and E-Commerce Merchants.
           </p>
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1 text-xs text-slate-400">
             <span className="inline-flex items-center gap-1 text-emerald-400">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>100% Private</span>

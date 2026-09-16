@@ -66,7 +66,7 @@ export function CompressionControls() {
               onChange={(e) => setCompressionLevel(Number(e.target.value))}
               className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
             />
-            <div className="flex justify-between text-[11px] text-slate-500 mt-1 font-mono">
+            <div className="flex justify-between text-[11px] text-slate-400 mt-1 font-mono">
               <span>0% (Lossless)</span>
               <span>45%</span>
               <span>65% (Optimal)</span>
@@ -114,7 +114,7 @@ export function CompressionControls() {
               );
             })}
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-300">
             {targetFormat === "webp" && "WebP produces 25%–35% smaller files than JPEG with high visual fidelity."}
             {targetFormat === "ico" && "Generates a multi-size Windows .ICO file (16x16, 32x32, 48x48) perfect for website favicons."}
             {targetFormat === "png" && "PNG maintains full alpha transparency, ideal for logos and UI graphics."}

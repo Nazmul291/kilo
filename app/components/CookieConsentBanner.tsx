@@ -57,9 +57,10 @@ export function CookieConsentBanner() {
               </button>
               <a
                 href="/privacy"
+                aria-label="Read our Privacy and Cookie Policy"
                 className="px-2 py-1.5 text-slate-400 hover:text-emerald-400 font-semibold text-xs underline underline-offset-2 transition-colors"
               >
-                Learn More
+                Privacy Policy
               </a>
             </div>
           </div>
@@ -67,8 +68,9 @@ export function CookieConsentBanner() {
           <button
             type="button"
             onClick={handleEssentialOnly}
-            className="text-slate-500 hover:text-slate-300 p-1"
+            className="text-slate-400 hover:text-slate-200 p-1"
             title="Dismiss"
+            aria-label="Dismiss cookie notice"
           >
             <X className="w-4 h-4" />
           </button>

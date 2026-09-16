@@ -54,6 +54,7 @@ export function MediaDropzone() {
         type="file"
         accept="image/png,image/jpeg,image/webp,image/avif,image/gif,image/svg+xml,image/x-icon"
         className="hidden"
+        aria-label="Upload image file to compress"
         onChange={handleFileChange}
       />
 
@@ -63,7 +64,7 @@ export function MediaDropzone() {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={openPicker}
-          className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-300 group ${
+          className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
             isDragOver
               ? "border-emerald-400 bg-emerald-950/20 scale-[1.01] shadow-xl shadow-emerald-500/10"
               : "border-slate-700/80 bg-slate-900/40 hover:border-slate-500 hover:bg-slate-900/70"
@@ -74,14 +75,14 @@ export function MediaDropzone() {
             <UploadCloud className="w-8 h-8" />
           </div>
 
-          <h3 className="text-lg font-bold text-white mb-2">
+          <h2 className="text-lg font-bold text-white mb-2">
             Drag & Drop your image here, or <span className="text-emerald-400 underline underline-offset-4 group-hover:text-emerald-300">browse</span>
-          </h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto mb-4">
+          </h2>
+          <p className="text-sm text-slate-300 max-w-md mx-auto mb-4">
             Supports JPEG, PNG, WebP, AVIF, SVG, GIF, and ICO formats.
           </p>
 
-          <div className="inline-flex items-center gap-3 text-xs text-slate-500">
+          <div className="inline-flex items-center gap-3 text-xs text-slate-400">
             <span>• 100% Private</span>
             <span>• No file size limits</span>
             <span>• Instant conversions</span>
@@ -153,6 +154,7 @@ export function MediaDropzone() {
                 onClick={clearFile}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-950/40 transition-colors"
                 title="Remove image"
+                aria-label="Remove image"
               >
                 <X className="w-5 h-5" />
               </button>

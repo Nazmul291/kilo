@@ -47,7 +47,7 @@ export function ResultDownloadCard() {
             <span className="text-2xl font-black text-slate-300">
               {formatBytes(compressedResult.originalSize)}
             </span>
-            <span className="block text-[11px] text-slate-500 mt-1">
+            <span className="block text-[11px] text-slate-400 mt-1">
               Before optimization
             </span>
           </div>

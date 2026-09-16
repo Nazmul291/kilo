@@ -29,6 +29,7 @@ export function LegalModal({ isOpen, onClose, initialTab = "privacy" }: LegalMod
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close legal modal"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />

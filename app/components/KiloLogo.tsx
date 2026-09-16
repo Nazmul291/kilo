@@ -13,6 +13,8 @@ export function KiloLogo({
       <img
         src="/logo.png"
         alt="Kilo Logo"
+        width="36"
+        height="36"
         className={`${className} object-contain transition-transform duration-300 hover:scale-105`}
       />
 

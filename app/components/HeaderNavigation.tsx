@@ -60,6 +60,8 @@ export function HeaderNavigation() {
             <img
               src="/nazmulcodes-logo.svg"
               alt="NazmulCodes Logo"
+              width="16"
+              height="16"
               className="w-4 h-4 rounded-sm object-contain group-hover:scale-110 transition-transform"
             />
             <span className="hidden sm:inline">

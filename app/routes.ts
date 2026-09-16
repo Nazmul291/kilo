@@ -16,4 +16,5 @@ export default [
   route("sitemap.xml", "routes/sitemap.ts"),
   route("privacy", "routes/privacy.tsx"),
   route("terms", "routes/terms.tsx"),
+  route("*", "routes/$.tsx"),
 ] satisfies RouteConfig;

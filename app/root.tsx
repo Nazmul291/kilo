@@ -32,17 +32,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="google-adsense-account" content="ca-pub-3337739847756959" />
         <Meta />
         <Links />
-        {/* Google AdSense Script */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3337739847756959"
-          crossOrigin="anonymous"
-        />
       </head>
       <body>
         {children}
         <ScrollRestoration />
         <Scripts />
+        {/* Google AdSense Script - Only load on live domain, not localhost, to avoid third-party cookie penalties and console errors */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const s = document.createElement('script');
+                s.async = true;
+                s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3337739847756959';
+                s.crossOrigin = 'anonymous';
+                document.body.appendChild(s);
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

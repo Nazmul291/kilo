@@ -46,8 +46,8 @@ export function StocklyFeaturedCard() {
             Sponsored by
           </span>
         </div>
-        <span className="text-[11px] text-slate-500">
-          Supporting Kilo as a free utility
+        <span className="text-[11px] text-slate-400">
+          Sponsored Ecosystem Partner
         </span>
       </div>
 
@@ -69,6 +69,9 @@ export function StocklyFeaturedCard() {
                   <img
                     src={app.logoUrl}
                     alt={`${app.name} Logo`}
+                    width="80"
+                    height="80"
+                    loading="lazy"
                     className="w-full h-full object-contain rounded-xl"
                   />
                 </div>
@@ -118,7 +121,7 @@ export function StocklyFeaturedCard() {
                     href={app.appStoreUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 w-full md:w-44 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-emerald-500 hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20 group"
+                    className="inline-flex items-center justify-center gap-2 w-full md:w-44 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-colors shadow-lg shadow-emerald-500/20 group"
                   >
                     <Store className="w-4 h-4" />
                     <span>Shopify App Store</span>
