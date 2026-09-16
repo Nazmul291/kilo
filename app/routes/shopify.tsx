@@ -20,6 +20,10 @@ import {
   Check,
   LogOut,
   Info,
+  Eye,
+  X,
+  Columns,
+  Split,
 } from "lucide-react";
 
 export function meta({}: Route.MetaArgs) {
@@ -61,6 +65,19 @@ interface OptimizedImageResult {
   format: string;
 }
 
+interface CompareItem {
+  productId: string;
+  productTitle: string;
+  imageId: string;
+  altText: string;
+  originalUrl: string;
+  originalBytes: number;
+  optimizedUrl: string;
+  optimizedBytes: number;
+  reductionPercent: number;
+  format: string;
+}
+
 export default function ShopifyOptimizer() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [connectedShop, setConnectedShop] = useState<string | null>(null);
@@ -85,6 +102,22 @@ export default function ShopifyOptimizer() {
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+
+  // Compare modal state
+  const [compareItem, setCompareItem] = useState<CompareItem | null>(null);
+  const [compareMode, setCompareMode] = useState<"side-by-side" | "slider">("side-by-side");
+  const [sliderPos, setSliderPos] = useState<number>(50);
+
+  // Close compare modal on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCompareItem(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Check auth status on mount
   useEffect(() => {
@@ -785,14 +818,40 @@ export default function ShopifyOptimizer() {
                               </div>
 
                               {opt && (
-                                <a
-                                  href={opt.blobUrl}
-                                  download={`${product.handle}-${img.id}.${targetFormat}`}
-                                  className="w-full inline-flex items-center justify-center gap-1 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-semibold text-slate-300 hover:text-white transition-colors"
-                                >
-                                  <Download className="w-3 h-3" />
-                                  <span>Download</span>
-                                </a>
+                                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCompareItem({
+                                        productId: product.id,
+                                        productTitle: product.title,
+                                        imageId: img.id,
+                                        altText: img.altText,
+                                        originalUrl: img.url,
+                                        originalBytes: img.originalSizeBytes,
+                                        optimizedUrl: opt.blobUrl,
+                                        optimizedBytes: opt.optimizedBytes,
+                                        reductionPercent: opt.reductionPercent,
+                                        format: opt.format,
+                                      })
+                                    }
+                                    className="inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/30 text-[10px] font-bold text-emerald-300 transition-colors shadow-sm"
+                                    title="Compare original vs compressed quality"
+                                  >
+                                    <Eye className="w-3 h-3 text-emerald-400" />
+                                    <span>Compare</span>
+                                  </button>
+
+                                  <a
+                                    href={opt.blobUrl}
+                                    download={`${product.handle}-${img.id}.${targetFormat}`}
+                                    className="inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-semibold text-slate-300 hover:text-white transition-colors border border-slate-800"
+                                    title="Download optimized image"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Download</span>
+                                  </a>
+                                </div>
                               )}
                             </div>
                           );
@@ -802,6 +861,208 @@ export default function ShopifyOptimizer() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Full-Screen Interactive Comparison Modal */}
+        {compareItem && (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+            <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-950/80">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                      Visual Quality Inspection
+                    </span>
+                    <span className="text-xs text-slate-500 hidden sm:inline">•</span>
+                    <span className="text-xs text-slate-400 truncate hidden sm:inline">
+                      {compareItem.productTitle}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white truncate mt-0.5">
+                    {compareItem.altText || compareItem.productTitle}
+                  </h3>
+                </div>
+
+                {/* Switcher & Close */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                  {/* Mode Toggle */}
+                  <div className="flex items-center bg-slate-900 border border-slate-700/80 rounded-xl p-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setCompareMode("side-by-side")}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                        compareMode === "side-by-side"
+                          ? "bg-emerald-500 text-slate-950 shadow-sm"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Columns className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Side-by-Side</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCompareMode("slider")}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                        compareMode === "slider"
+                          ? "bg-emerald-500 text-slate-950 shadow-sm"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Split className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Split Slider</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCompareItem(null)}
+                    className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                    title="Close preview (Esc)"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/40">
+                {compareMode === "side-by-side" ? (
+                  /* Side-by-Side View */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 h-full items-stretch">
+                    {/* Left: Original */}
+                    <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                      <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 text-xs">
+                        <span className="font-bold text-slate-300">
+                          Original (Uncompressed)
+                        </span>
+                        <span className="font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                          {formatBytes(compareItem.originalBytes)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-h-[300px] sm:min-h-[420px] flex items-center justify-center p-3 bg-slate-950/80">
+                        <img
+                          src={compareItem.originalUrl}
+                          alt="Original uncompressed product"
+                          className="max-h-[50vh] w-auto max-w-full object-contain rounded-lg shadow-md"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right: Compressed */}
+                    <div className="flex flex-col rounded-2xl border border-emerald-500/30 bg-slate-900/60 overflow-hidden shadow-lg shadow-emerald-500/5">
+                      <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-emerald-950/40 text-xs">
+                        <span className="font-bold text-emerald-300 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Kilo Compressed ({compareItem.format})</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/30">
+                            {formatBytes(compareItem.optimizedBytes)}
+                          </span>
+                          <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded">
+                            -{compareItem.reductionPercent}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-h-[300px] sm:min-h-[420px] flex items-center justify-center p-3 bg-slate-950/80">
+                        <img
+                          src={compareItem.optimizedUrl}
+                          alt="Kilo optimized compressed product"
+                          className="max-h-[50vh] w-auto max-w-full object-contain rounded-lg shadow-md"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Interactive Split Slider View */
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <div className="relative w-full max-w-2xl aspect-[4/3] rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-xl">
+                      {/* Underneath: Compressed Image */}
+                      <img
+                        src={compareItem.optimizedUrl}
+                        alt="Compressed product"
+                        className="absolute inset-0 w-full h-full object-contain"
+                      />
+                      <div className="absolute top-3 right-3 z-10 bg-emerald-950/90 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm shadow-md">
+                        Compressed ({formatBytes(compareItem.optimizedBytes)})
+                      </div>
+
+                      {/* Overlaid: Original Image clipped by slider position */}
+                      <div
+                        className="absolute inset-0 overflow-hidden pointer-events-none"
+                        style={{ width: `${sliderPos}%` }}
+                      >
+                        <img
+                          src={compareItem.originalUrl}
+                          alt="Original product"
+                          className="absolute inset-0 w-full h-full object-contain max-w-none"
+                          style={{ width: "100%" }}
+                        />
+                        <div className="absolute top-3 left-3 bg-slate-900/90 border border-slate-700 text-slate-200 text-[11px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm shadow-md">
+                          Original ({formatBytes(compareItem.originalBytes)})
+                        </div>
+                      </div>
+
+                      {/* Divider Line & Drag Handle */}
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-emerald-400 pointer-events-none"
+                        style={{ left: `${sliderPos}%` }}
+                      >
+                        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-lg border-2 border-white">
+                          <Split className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+
+                      {/* Interactive Drag input overlay */}
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={sliderPos}
+                        onChange={(e) => setSliderPos(Number(e.target.value))}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
+                        aria-label="Drag before and after split slider"
+                      />
+                    </div>
+
+                    <p className="text-xs text-slate-400 text-center">
+                      👈 Drag the slider horizontally to reveal original vs. compressed pixels in real-time 👉
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/90 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-xs text-slate-300 text-center sm:text-left">
+                  <span>Saved </span>
+                  <strong className="text-emerald-400 font-bold">
+                    {formatBytes(compareItem.originalBytes - compareItem.optimizedBytes)}
+                  </strong>
+                  <span> ({compareItem.reductionPercent}% byte reduction) with zero perceived loss in visual clarity.</span>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <a
+                    href={compareItem.optimizedUrl}
+                    download={`kilo-optimized-${compareItem.imageId}.${compareItem.format.toLowerCase()}`}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors shadow-md shadow-emerald-500/20"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download File</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setCompareItem(null)}
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
