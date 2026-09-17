@@ -11,4 +11,7 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-router", "zustand", "lucide-react"],
+  },
 });
