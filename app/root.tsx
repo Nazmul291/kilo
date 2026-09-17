@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -23,6 +24,29 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
+function GoogleAdSense() {
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      const existing = document.getElementById("google-adsense-script");
+      if (!existing) {
+        const s = document.createElement("script");
+        s.id = "google-adsense-script";
+        s.async = true;
+        s.src =
+          "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3337739847756959";
+        s.crossOrigin = "anonymous";
+        document.head.appendChild(s);
+      }
+    }
+  }, []);
+
+  return null;
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -37,20 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
-        {/* Google AdSense Script - Only load on live domain, not localhost, to avoid third-party cookie penalties and console errors */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                const s = document.createElement('script');
-                s.async = true;
-                s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3337739847756959';
-                s.crossOrigin = 'anonymous';
-                document.body.appendChild(s);
-              }
-            `,
-          }}
-        />
+        <GoogleAdSense />
       </body>
     </html>
   );

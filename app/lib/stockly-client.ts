@@ -5,7 +5,25 @@
  * according to the integration specification.
  */
 
-export const STOCKLY_PROD_URL = "https://stockly.nazmulcodes.org";
+/**
+ * Dynamic Stockly Base URL:
+ * Resolves dynamically from environment variables (VITE_STOCKLY_API_URL or STOCKLY_API_URL)
+ * and falls back to production (https://stockly.nazmulcodes.org).
+ */
+export function getStocklyBaseUrl(): string {
+  if (typeof import.meta !== "undefined" && import.meta.env?.VITE_STOCKLY_API_URL) {
+    return import.meta.env.VITE_STOCKLY_API_URL.replace(/\/+$/, "");
+  }
+  if (typeof process !== "undefined" && process.env?.STOCKLY_API_URL) {
+    return process.env.STOCKLY_API_URL.replace(/\/+$/, "");
+  }
+  if (typeof process !== "undefined" && process.env?.VITE_STOCKLY_API_URL) {
+    return process.env.VITE_STOCKLY_API_URL.replace(/\/+$/, "");
+  }
+  return "https://stockly.nazmulcodes.org";
+}
+
+export const STOCKLY_PROD_URL = getStocklyBaseUrl();
 export const TOKEN_STORAGE_KEY = "stockly_jwt";
 export const SHOP_STORAGE_KEY = "stockly_shop";
 
@@ -48,7 +66,8 @@ export interface StocklyProductsResponse {
 }
 
 export interface SyncMediaItem {
-  url: string;
+  url?: string;
+  base64?: string;
   format: string;
   alt: string;
   sizeBytes: number;
@@ -281,7 +300,8 @@ async function stocklyFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const url = `${STOCKLY_PROD_URL}${endpoint}`;
+  const baseUrl = getStocklyBaseUrl();
+  const url = `${baseUrl}${endpoint}`;
   
   const response = await fetch(url, {
     ...options,

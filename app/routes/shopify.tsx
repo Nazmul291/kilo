@@ -79,9 +79,19 @@ interface StagedResult {
   optimizedBytes: number;
   reductionPercent: number;
   stagedUrl: string;
+  base64?: string;
   blobUrl: string;
   format: string;
   altText: string;
+}
+
+/**
+ * Truncate long strings with ellipsis (...)
+ */
+function truncateText(text: string, maxLength: number): string {
+  if (!text) return "";
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength).trim() + "...";
 }
 
 export default function ShopifyOptimizer() {
@@ -97,6 +107,10 @@ export default function ShopifyOptimizer() {
   const [searchQuery, setSearchQuery] = useState("");
   const [pageCursor, setPageCursor] = useState<string | null>(null);
   const [hasNextPage, setHasNextPage] = useState(false);
+
+  // Cursor-based Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([null]);
 
   // Optimization Modal / Drawer State
   const [selectedProduct, setSelectedProduct] = useState<StocklyProduct | null>(null);
@@ -179,6 +193,39 @@ export default function ShopifyOptimizer() {
     } finally {
       setIsLoadingProducts(false);
     }
+  }
+
+  // Handle Next Page
+  function handleNextPage() {
+    if (!hasNextPage || !pageCursor || isLoadingProducts) return;
+    setCursorHistory((prev) => [...prev, pageCursor]);
+    setCurrentPage((prev) => prev + 1);
+    loadProducts(pageCursor, searchQuery);
+  }
+
+  // Handle Previous Page
+  function handlePrevPage() {
+    if (currentPage <= 1 || isLoadingProducts) return;
+    const targetPage = currentPage - 1;
+    const targetCursor = cursorHistory[targetPage - 1] || null;
+    setCurrentPage(targetPage);
+    loadProducts(targetCursor, searchQuery);
+  }
+
+  // Handle Search submit
+  function handleSearchSubmit() {
+    setCurrentPage(1);
+    setCursorHistory([null]);
+    setPageCursor(null);
+    loadProducts(null, searchQuery);
+  }
+
+  // Handle Refresh
+  function handleRefresh() {
+    setCurrentPage(1);
+    setCursorHistory([null]);
+    setPageCursor(null);
+    loadProducts(null, searchQuery);
   }
 
   // Handle Demo Mode quick-connect
@@ -277,22 +324,30 @@ export default function ShopifyOptimizer() {
 
         URL.revokeObjectURL(objectUrl);
 
+        // Convert Blob to Base64 (directly usable by Stockly proxy)
+        const base64DataUrl = canvas.toDataURL(mimeType, quality / 100);
+
         // 3. Stage the compressed image on Kilo temporary staging CDN
-        setProcessStep(`Staging image ${i + 1} of ${selectedProduct.images.length} on CDN...`);
+        setProcessStep(`Staging image ${i + 1} of ${selectedProduct.images.length}...`);
         
-        const formData = new FormData();
-        formData.append("file", compressedBlob, `opt-${img.mediaId}.${targetFormat}`);
+        let stagedUrl = "";
+        try {
+          const formData = new FormData();
+          formData.append("file", compressedBlob, `opt-${img.mediaId}.${targetFormat}`);
 
-        const stageRes = await fetch("/api/staged-media", {
-          method: "POST",
-          body: formData,
-        });
+          const stageRes = await fetch("/api/staged-media", {
+            method: "POST",
+            body: formData,
+          });
 
-        if (!stageRes.ok) {
-          throw new Error("Failed to stage image on Kilo temporary CDN.");
+          if (stageRes.ok) {
+            const stageData = await stageRes.json();
+            stagedUrl = stageData.url || "";
+          }
+        } catch (e) {
+          console.warn("Local staging CDN skipped, using direct base64 upload:", e);
         }
 
-        const stageData = await stageRes.json();
         const originalBytes = img.originalSizeBytes || imageBlob.size;
         const optimizedBytes = compressedBlob.size;
         const reductionPercent = Math.max(
@@ -314,7 +369,8 @@ export default function ShopifyOptimizer() {
           originalBytes,
           optimizedBytes,
           reductionPercent,
-          stagedUrl: stageData.url,
+          stagedUrl: stagedUrl || "",
+          base64: base64DataUrl,
           blobUrl: URL.createObjectURL(compressedBlob),
           format: targetFormat.toUpperCase(),
           altText: altText.slice(0, SHOPIFY_MAX_ALT_TEXT_LENGTH),
@@ -322,7 +378,7 @@ export default function ShopifyOptimizer() {
       }
 
       setStagedResults(newStaged);
-      setProcessStep("Staging complete! Ready to sync with Shopify.");
+      setProcessStep("Compression complete! Ready to sync with Shopify.");
     } catch (err: any) {
       setNotification({
         type: "error",
@@ -357,7 +413,8 @@ export default function ShopifyOptimizer() {
         totalOriginalBytes,
         totalOptimizedBytes,
         optimizedImages: stagedList.map((item) => ({
-          url: item.stagedUrl,
+          base64: item.base64,
+          url: item.stagedUrl || undefined,
           format: item.format.toLowerCase(),
           alt: item.altText,
           sizeBytes: item.optimizedBytes,
@@ -679,7 +736,7 @@ export default function ShopifyOptimizer() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") loadProducts(null, searchQuery);
+                    if (e.key === "Enter") handleSearchSubmit();
                   }}
                   placeholder="Search products by title..."
                   className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
@@ -689,7 +746,7 @@ export default function ShopifyOptimizer() {
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
                   type="button"
-                  onClick={() => loadProducts()}
+                  onClick={handleRefresh}
                   disabled={isLoadingProducts}
                   className="px-3.5 py-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   aria-label="Refresh catalog"
@@ -749,11 +806,17 @@ export default function ShopifyOptimizer() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="font-bold text-white block truncate max-w-xs text-sm">
-                                    {product.title}
+                                  <span
+                                    className="font-bold text-white block truncate max-w-xs text-sm"
+                                    title={product.title}
+                                  >
+                                    {truncateText(product.title, 50)}
                                   </span>
-                                  <span className="text-slate-400 text-[11px] block truncate">
-                                    /{product.handle}
+                                  <span
+                                    className="text-slate-400 text-[11px] block truncate"
+                                    title={`/${product.handle}`}
+                                  >
+                                    /{truncateText(product.handle, 35)}
                                   </span>
                                 </div>
                               </div>
@@ -835,6 +898,39 @@ export default function ShopifyOptimizer() {
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Cursor-based Pagination Toolbar */}
+                <div className="p-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/60">
+                  <div className="text-xs text-slate-400">
+                    Showing <span className="font-semibold text-white">{products.length}</span> products on Page{" "}
+                    <span className="font-semibold text-emerald-400">{currentPage}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePrevPage}
+                      disabled={currentPage <= 1 || isLoadingProducts}
+                      className="px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Previous Page"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Previous</span>
+                    </button>
+                    <span className="px-3 py-1 rounded-xl bg-slate-800 border border-slate-700/60 text-xs font-bold text-white">
+                      {currentPage}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNextPage}
+                      disabled={!hasNextPage || isLoadingProducts}
+                      className="px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Next Page"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
