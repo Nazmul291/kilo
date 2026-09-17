@@ -1,46 +1,63 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import type { Route } from "./+types/shopify";
 import { HeaderNavigation } from "../components/HeaderNavigation";
 import { FooterCredits } from "../components/FooterCredits";
-import type { ShopifyProduct } from "./api.stockly.products";
+import {
+  fetchStocklyProducts,
+  syncProductMediaToStockly,
+  revertProductMedia,
+  getStoredToken,
+  getStoredShop,
+  setStoredSession,
+  clearStoredSession,
+  decodeJwtPayload,
+  type StocklyProduct,
+  type StocklyImage,
+  type SyncMediaItem,
+} from "../lib/stockly-client";
+import {
+  generateSmartAltText,
+  validateShopifyAltText,
+  SHOPIFY_MAX_ALT_TEXT_LENGTH,
+} from "../lib/smart-alt-text";
 import {
   Store,
-  Key,
   ShieldCheck,
   Zap,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Layers,
   Sparkles,
   ExternalLink,
-  Download,
   Sliders,
-  Check,
   LogOut,
-  Info,
-  Eye,
   X,
-  Columns,
-  Split,
+  History,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  FileImage,
+  Check,
+  Layers,
 } from "lucide-react";
 
 export function meta({}: Route.MetaArgs) {
   return [
     {
-      title: "Stockly & Shopify Merchant Optimizer — 1-Click Batch Image Compression — Kilo",
+      title: "Stockly & Shopify Merchant Optimizer — 1-Click Media Optimization — Kilo",
     },
     {
       name: "description",
       content:
-        "Connect your Shopify store with Stockly to batch-optimize product photography directly in your browser. 100% private, zero server storage, and instant WebP conversion.",
+        "Connect your Shopify store via Stockly to batch-optimize product photography directly in your browser. Unidirectional API, zero database storage, smart SEO alt text, and 1-click rollback.",
     },
     { name: "robots", content: "index, follow" },
     {
       name: "keywords",
       content:
-        "shopify image optimizer, stockly shopify integration, batch compress shopify images, client side shopify webp converter, speed up shopify store",
+        "shopify image optimizer, stockly shopify integration, batch compress shopify images, client side shopify webp converter, shopify alt text generator",
     },
     {
       property: "og:title",
@@ -49,1018 +66,1045 @@ export function meta({}: Route.MetaArgs) {
     {
       property: "og:description",
       content:
-        "Batch compress your entire Shopify product catalog in your browser with zero server storage.",
+        "Batch compress product photos and generate smart alt texts for Shopify with 1-click rollback.",
     },
     { property: "og:url", content: "https://kilo.nazmulcodes.org/shopify" },
     { property: "og:type", content: "website" },
   ];
 }
 
-interface OptimizedImageResult {
+interface StagedResult {
   imageId: string;
   originalBytes: number;
   optimizedBytes: number;
   reductionPercent: number;
+  stagedUrl: string;
   blobUrl: string;
   format: string;
-}
-
-interface CompareItem {
-  productId: string;
-  productTitle: string;
-  imageId: string;
   altText: string;
-  originalUrl: string;
-  originalBytes: number;
-  optimizedUrl: string;
-  optimizedBytes: number;
-  reductionPercent: number;
-  format: string;
 }
 
 export default function ShopifyOptimizer() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  // Session State
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [connectedShop, setConnectedShop] = useState<string | null>(null);
-  const [shopDomain, setShopDomain] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [tokenPayload, setTokenPayload] = useState<any | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   // Products state
-  const [products, setProducts] = useState<ShopifyProduct[]>([]);
+  const [products, setProducts] = useState<StocklyProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageCursor, setPageCursor] = useState<string | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
 
-  // Batch compression settings
+  // Optimization Modal / Drawer State
+  const [selectedProduct, setSelectedProduct] = useState<StocklyProduct | null>(null);
   const [targetFormat, setTargetFormat] = useState<"webp" | "jpeg" | "png">("webp");
   const [quality, setQuality] = useState<number>(80);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [optimizedResults, setOptimizedResults] = useState<
-    Record<string, OptimizedImageResult>
-  >({});
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [syncMode, setSyncMode] = useState<"replace" | "keep_both">("replace");
+  
+  // Custom Alt Texts state per image { [mediaId]: string }
+  const [customAltTexts, setCustomAltTexts] = useState<Record<string, string>>({});
 
-  // Sync state
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+  // Optimization execution state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processStep, setProcessStep] = useState<string>("");
+  const [processProgress, setProcessProgress] = useState({ current: 0, total: 0 });
+  const [stagedResults, setStagedResults] = useState<Record<string, StagedResult>>({});
 
-  // Compare modal state
-  const [compareItem, setCompareItem] = useState<CompareItem | null>(null);
-  const [compareMode, setCompareMode] = useState<"side-by-side" | "slider">("side-by-side");
-  const [sliderPos, setSliderPos] = useState<number>(50);
+  // Action status / Notifications
+  const [notification, setNotification] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
 
-  // Close compare modal on Escape
+  // Revert loading state per product
+  const [revertingProductId, setRevertingProductId] = useState<string | null>(null);
+
+  // Initialize session from URL query or localStorage on mount
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setCompareItem(null);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    const urlShop = params.get("shop");
 
-  // Check auth status on mount
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const res = await fetch("/api/stockly/auth");
-        const data = await res.json();
-        if (data.authenticated && data.shop) {
-          setIsAuthenticated(true);
-          setConnectedShop(data.shop);
-          fetchProducts();
-        } else {
-          setIsAuthenticated(false);
-        }
-      } catch {
-        setIsAuthenticated(false);
+    if (urlToken && urlShop) {
+      setStoredSession(urlToken, urlShop);
+      setAuthToken(urlToken);
+      setConnectedShop(urlShop);
+      setTokenPayload(decodeJwtPayload(urlToken));
+      // Clean query params from URL cleanly without page reload
+      window.history.replaceState({}, "", "/shopify");
+    } else {
+      const storedToken = getStoredToken();
+      const storedShop = getStoredShop();
+      if (storedToken && storedShop) {
+        setAuthToken(storedToken);
+        setConnectedShop(storedShop);
+        setTokenPayload(decodeJwtPayload(storedToken));
       }
     }
-    checkAuth();
   }, []);
 
-  // Fetch products
-  async function fetchProducts() {
+  // Load products whenever token changes
+  useEffect(() => {
+    if (authToken || isDemo) {
+      loadProducts();
+    }
+  }, [authToken, isDemo]);
+
+  // Load products list from Stockly
+  async function loadProducts(cursor: string | null = null, query: string = searchQuery) {
     setIsLoadingProducts(true);
     try {
-      const res = await fetch("/api/stockly/products");
-      if (res.ok) {
-        const data = await res.json();
-        setProducts(data.products || []);
+      const res = await fetchStocklyProducts({
+        limit: 20,
+        cursor,
+        query: query ? `title:${query}*` : null,
+      });
+
+      if (res.success) {
+        setProducts(res.products);
+        setHasNextPage(res.pageInfo.hasNextPage);
+        setPageCursor(res.pageInfo.endCursor || null);
+        if (res.isDemo) {
+          setIsDemo(true);
+        }
       }
-    } catch (err) {
-      console.error("Failed to load products", err);
+    } catch (err: any) {
+      setNotification({
+        type: "error",
+        message: err.message || "Failed to load products from Stockly.",
+      });
     } finally {
       setIsLoadingProducts(false);
     }
   }
 
-  // Handle Connect
-  async function handleConnect(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setAuthError(null);
-
-    try {
-      const res = await fetch("/api/stockly/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shop: shopDomain, accessToken }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Authentication failed.");
-      }
-
-      setIsAuthenticated(true);
-      setConnectedShop(data.shop);
-      fetchProducts();
-    } catch (err: any) {
-      setAuthError(err.message || "Failed to connect store.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   // Handle Demo Mode quick-connect
-  async function handleDemoConnect() {
-    setShopDomain("modern-apparel.myshopify.com");
-    setAccessToken("demo-stockly-token-2026");
-    setIsSubmitting(true);
-    setAuthError(null);
-
-    try {
-      const res = await fetch("/api/stockly/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shop: "modern-apparel.myshopify.com",
-          accessToken: "demo-stockly-token-2026",
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Demo connection failed.");
-      }
-
-      setIsAuthenticated(true);
-      setConnectedShop(data.shop);
-      fetchProducts();
-    } catch (err: any) {
-      setAuthError(err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
+  function handleLaunchDemo() {
+    setIsDemo(true);
+    setAuthToken("demo-token");
+    setConnectedShop("modern-apparel.myshopify.com");
+    setStoredSession("demo-token", "modern-apparel.myshopify.com");
+    setNotification({
+      type: "info",
+      message: "Connected in Demo Mode. Experience the full Kilo ↔ Stockly workflow with sample products.",
+    });
   }
 
   // Handle Disconnect
-  async function handleDisconnect() {
-    try {
-      await fetch("/api/stockly/auth", { method: "DELETE" });
-      setIsAuthenticated(false);
-      setConnectedShop(null);
-      setProducts([]);
-      setOptimizedResults({});
-    } catch (err) {
-      console.error("Failed to disconnect", err);
-    }
+  function handleDisconnect() {
+    clearStoredSession();
+    setAuthToken(null);
+    setConnectedShop(null);
+    setTokenPayload(null);
+    setIsDemo(false);
+    setProducts([]);
+    setSelectedProduct(null);
+    setStagedResults({});
+    setNotification({
+      type: "info",
+      message: "Disconnected from Shopify store.",
+    });
   }
 
-  // 1-Click In-Browser Batch Compression
-  async function handleBatchOptimize() {
-    const allImages = products.flatMap((p) => p.images);
-    if (allImages.length === 0) return;
+  // Open optimization drawer for a product
+  function handleOpenOptimizeModal(product: StocklyProduct) {
+    setSelectedProduct(product);
+    setStagedResults({});
+    
+    // Pre-generate Smart Alt Texts complying with Shopify's 512 char limit
+    const initialAltTexts: Record<string, string> = {};
+    product.images.forEach((img, idx) => {
+      initialAltTexts[img.mediaId] = generateSmartAltText({
+        productTitle: product.title,
+        vendor: product.vendor,
+        imageIndex: idx,
+        totalImages: product.images.length,
+      });
+    });
+    setCustomAltTexts(initialAltTexts);
+  }
 
-    setIsOptimizing(true);
-    setProgress({ current: 0, total: allImages.length });
-    setSyncSuccessMessage(null);
+  // Execute in-browser compression and staging to Kilo staging endpoint
+  async function handleCompressAndStage() {
+    if (!selectedProduct || selectedProduct.images.length === 0) return;
 
-    const newResults: Record<string, OptimizedImageResult> = {};
+    setIsProcessing(true);
+    setProcessStep("Compressing images in browser...");
+    setProcessProgress({ current: 0, total: selectedProduct.images.length });
 
-    for (let i = 0; i < allImages.length; i++) {
-      const img = allImages[i];
-      setProgress({ current: i + 1, total: allImages.length });
+    const newStaged: Record<string, StagedResult> = {};
 
-      try {
-        // Fetch image via proxy to avoid CORS canvas tainting
+    try {
+      for (let i = 0; i < selectedProduct.images.length; i++) {
+        const img = selectedProduct.images[i];
+        setProcessProgress({ current: i + 1, total: selectedProduct.images.length });
+
+        // 1. Fetch image via proxy to bypass cross-origin canvas tainting
         const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(img.url)}`;
         const imageRes = await fetch(proxyUrl);
+        if (!imageRes.ok) throw new Error(`Could not load image ${img.mediaId}`);
         const imageBlob = await imageRes.blob();
 
-        // Load into in-memory image
+        // 2. Render onto offscreen canvas for zero-server compression
         const imgElement = new Image();
         const objectUrl = URL.createObjectURL(imageBlob);
         imgElement.src = objectUrl;
-
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           imgElement.onload = resolve;
+          imgElement.onerror = reject;
         });
 
-        // Draw onto offscreen canvas
         const canvas = document.createElement("canvas");
         canvas.width = imgElement.naturalWidth || img.width;
         canvas.height = imgElement.naturalHeight || img.height;
         const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Could not initialize 2D canvas context");
+        ctx.drawImage(imgElement, 0, 0);
 
-        if (ctx) {
-          ctx.drawImage(imgElement, 0, 0);
+        const mimeType =
+          targetFormat === "png"
+            ? "image/png"
+            : targetFormat === "jpeg"
+            ? "image/jpeg"
+            : "image/webp";
 
-          // Compress to target format
-          const mimeType =
-            targetFormat === "png"
-              ? "image/png"
-              : targetFormat === "jpeg"
-              ? "image/jpeg"
-              : "image/webp";
-
-          const compressedBlob: Blob = await new Promise((resolve) => {
-            canvas.toBlob((b) => resolve(b || imageBlob), mimeType, quality / 100);
-          });
-
-          const resultUrl = URL.createObjectURL(compressedBlob);
-          const originalBytes = img.originalSizeBytes;
-          const optimizedBytes = compressedBlob.size;
-          const reductionPercent = Math.max(
-            0,
-            Math.round(((originalBytes - optimizedBytes) / originalBytes) * 100)
-          );
-
-          newResults[img.id] = {
-            imageId: img.id,
-            originalBytes,
-            optimizedBytes,
-            reductionPercent,
-            blobUrl: resultUrl,
-            format: targetFormat.toUpperCase(),
-          };
-        }
+        const compressedBlob: Blob = await new Promise((resolve) => {
+          canvas.toBlob((b) => resolve(b || imageBlob), mimeType, quality / 100);
+        });
 
         URL.revokeObjectURL(objectUrl);
-      } catch (err) {
-        console.error(`Failed to compress image ${img.id}`, err);
-      }
-    }
 
-    setOptimizedResults(newResults);
-    setIsOptimizing(false);
+        // 3. Stage the compressed image on Kilo temporary staging CDN
+        setProcessStep(`Staging image ${i + 1} of ${selectedProduct.images.length} on CDN...`);
+        
+        const formData = new FormData();
+        formData.append("file", compressedBlob, `opt-${img.mediaId}.${targetFormat}`);
+
+        const stageRes = await fetch("/api/staged-media", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!stageRes.ok) {
+          throw new Error("Failed to stage image on Kilo temporary CDN.");
+        }
+
+        const stageData = await stageRes.json();
+        const originalBytes = img.originalSizeBytes || imageBlob.size;
+        const optimizedBytes = compressedBlob.size;
+        const reductionPercent = Math.max(
+          0,
+          Math.round(((originalBytes - optimizedBytes) / originalBytes) * 100)
+        );
+
+        // Retrieve custom alt text or fallback to generated smart alt text
+        const altText =
+          customAltTexts[img.mediaId] ||
+          generateSmartAltText({
+            productTitle: selectedProduct.title,
+            imageIndex: i,
+            totalImages: selectedProduct.images.length,
+          });
+
+        newStaged[img.mediaId] = {
+          imageId: img.mediaId,
+          originalBytes,
+          optimizedBytes,
+          reductionPercent,
+          stagedUrl: stageData.url,
+          blobUrl: URL.createObjectURL(compressedBlob),
+          format: targetFormat.toUpperCase(),
+          altText: altText.slice(0, SHOPIFY_MAX_ALT_TEXT_LENGTH),
+        };
+      }
+
+      setStagedResults(newStaged);
+      setProcessStep("Staging complete! Ready to sync with Shopify.");
+    } catch (err: any) {
+      setNotification({
+        type: "error",
+        message: err.message || "Compression failed.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   }
 
-  // Handle Sync back to Shopify via Stockly
+  // Push staged optimized media to Shopify via Stockly
   async function handleSyncToShopify() {
-    const resultsArray = Object.values(optimizedResults);
-    if (resultsArray.length === 0) return;
+    if (!selectedProduct) return;
+    const stagedList = Object.values(stagedResults);
+    if (stagedList.length === 0) return;
 
-    setIsSyncing(true);
-    setSyncSuccessMessage(null);
+    setIsProcessing(true);
+    setProcessStep("Syncing optimized media to Shopify via Stockly...");
 
     try {
-      const payload = {
-        updates: resultsArray.map((r) => ({
-          imageId: r.imageId,
-          targetFormat: r.format,
-          optimizedSizeBytes: r.optimizedBytes,
-          savedBytes: r.originalBytes - r.optimizedBytes,
+      const totalOriginalBytes = stagedList.reduce((sum, item) => sum + item.originalBytes, 0);
+      const totalOptimizedBytes = stagedList.reduce((sum, item) => sum + item.optimizedBytes, 0);
+      const overallSavingsPercent = Math.max(
+        1,
+        Math.round(((totalOriginalBytes - totalOptimizedBytes) / totalOriginalBytes) * 100)
+      );
+
+      const syncPayload = {
+        productId: selectedProduct.id,
+        mode: syncMode,
+        savingsPercent: overallSavingsPercent,
+        totalOriginalBytes,
+        totalOptimizedBytes,
+        optimizedImages: stagedList.map((item) => ({
+          url: item.stagedUrl,
+          format: item.format.toLowerCase(),
+          alt: item.altText,
+          sizeBytes: item.optimizedBytes,
         })),
       };
 
-      const res = await fetch("/api/stockly/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const syncRes = await syncProductMediaToStockly(syncPayload);
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to sync.");
+      if (syncRes.success) {
+        // Update product in local state
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === selectedProduct.id
+              ? {
+                  ...p,
+                  optimized: true,
+                  savingsPercent: overallSavingsPercent,
+                  mode: syncMode,
+                  lastOptimizedAt: new Date().toISOString(),
+                }
+              : p
+          )
+        );
+
+        setNotification({
+          type: "success",
+          message: `Successfully optimized and synced "${selectedProduct.title}" to Shopify! Saved ${overallSavingsPercent}%. Original photos backed up in private Shopify metafield.`,
+        });
+
+        setSelectedProduct(null);
+        setStagedResults({});
+      } else {
+        throw new Error(syncRes.error || "Failed to sync product media.");
       }
-
-      setSyncSuccessMessage(
-        `Successfully synced ${resultsArray.length} optimized images to ${connectedShop} via Stockly! Temporary processing buffers flushed.`
-      );
     } catch (err: any) {
-      alert(err.message || "Sync failed.");
+      setNotification({
+        type: "error",
+        message: err.message || "Failed to sync with Stockly.",
+      });
     } finally {
-      setIsSyncing(false);
+      setIsProcessing(false);
+    }
+  }
+
+  // Handle 1-Click Rollback / Revert
+  async function handleRevert(product: StocklyProduct) {
+    const confirmRevert = window.confirm(
+      `Are you sure you want to revert "${product.title}" back to its original high-resolution photography?`
+    );
+    if (!confirmRevert) return;
+
+    setRevertingProductId(product.id);
+    try {
+      const res = await revertProductMedia(product.id);
+      if (res.success) {
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === product.id
+              ? {
+                  ...p,
+                  optimized: false,
+                  savingsPercent: null,
+                  mode: null,
+                  lastOptimizedAt: null,
+                }
+              : p
+          )
+        );
+
+        setNotification({
+          type: "success",
+          message: res.message || `Successfully restored original media for "${product.title}".`,
+        });
+      } else {
+        throw new Error(res.error || "Rollback failed.");
+      }
+    } catch (err: any) {
+      setNotification({
+        type: "error",
+        message: err.message || "Failed to revert product media.",
+      });
+    } finally {
+      setRevertingProductId(null);
     }
   }
 
   // Format bytes helper
   function formatBytes(bytes: number) {
-    if (bytes === 0) return "0 Bytes";
+    if (!bytes || bytes === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   }
 
-  const allImages = products.flatMap((p) => p.images);
-  const totalOriginalBytes = allImages.reduce(
-    (acc, img) => acc + img.originalSizeBytes,
-    0
-  );
-  const optimizedCount = Object.keys(optimizedResults).length;
-  const totalOptimizedBytes = Object.values(optimizedResults).reduce(
-    (acc, res) => acc + res.optimizedBytes,
-    0
-  );
-  const totalSavedBytes = Object.values(optimizedResults).reduce(
-    (acc, res) => acc + (res.originalBytes - res.optimizedBytes),
-    0
-  );
+  // Computed summary metrics across products
+  const metrics = useMemo(() => {
+    const totalCount = products.length;
+    const optimizedCount = products.filter((p) => p.optimized).length;
+    const totalImages = products.reduce((sum, p) => sum + p.images.length, 0);
+    return { totalCount, optimizedCount, totalImages };
+  }, [products]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-300">
       <HeaderNavigation />
 
-      <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-10 w-full">
-        {/* Top Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6 mb-8">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/80 border border-emerald-500/30">
-                <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Stockly Merchant Feature</span>
-              </span>
-              <span className="text-[11px] text-slate-400">
-                100% Client-Side RAM
-              </span>
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-10">
+        {/* Top Notification Banner */}
+        {notification && (
+          <div
+            className={`mb-6 p-4 rounded-2xl border flex items-start justify-between gap-3 animate-fadeIn ${
+              notification.type === "success"
+                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-200"
+                : notification.type === "error"
+                ? "bg-red-950/60 border-red-500/40 text-red-200"
+                : "bg-sky-950/60 border-sky-500/40 text-sky-200"
+            }`}
+          >
+            <div className="flex items-center gap-2.5 text-sm font-medium">
+              {notification.type === "success" && <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />}
+              {notification.type === "error" && <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+              {notification.type === "info" && <Sparkles className="w-5 h-5 text-sky-400 flex-shrink-0" />}
+              <span>{notification.message}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Shopify Catalog Image Optimizer
+            <button
+              type="button"
+              onClick={() => setNotification(null)}
+              className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+              aria-label="Dismiss message"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Header Hero Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-800">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 mb-3">
+              <Store className="w-3.5 h-3.5" />
+              <span>Official Kilo ↔ Stockly Integration</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Shopify Product Media Optimizer
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
-              Connect your Shopify store using your Stockly access token. Batch-compress your catalog photography directly in your browser with zero server uploads.
+            <p className="text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+              Batch-compress Shopify product photography directly in your browser. Unidirectional API proxy via Stockly with 0 bytes database overhead and 1-click rollback.
             </p>
           </div>
 
-          {/* Connection Status Pill */}
-          {isAuthenticated && connectedShop && (
-            <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-2 px-3.5">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <div className="text-left">
-                  <p className="text-xs font-bold text-white leading-none">
+          {/* Connection Pill / Actions */}
+          <div className="flex flex-wrap items-center gap-3">
+            {connectedShop ? (
+              <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-2 pl-3.5 rounded-2xl shadow-sm">
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Connected Store {isDemo && "(Demo Mode)"}
+                  </span>
+                  <span className="text-xs font-semibold text-white truncate max-w-[180px]">
                     {connectedShop}
-                  </p>
-                  <p className="text-[10px] text-emerald-400 font-medium pt-0.5">
-                    Verified via Stockly
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
-                title="Disconnect Store"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Disconnect</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* VIEW 1: Disconnected / Onboarding Form */}
-        {isAuthenticated === false && (
-          <div className="max-w-3xl mx-auto space-y-8 py-4 animate-fadeIn">
-            {/* Instruction Card */}
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                  <Store className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">
-                    Connect with Stockly
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Follow these 3 simple steps to connect your Shopify store
-                  </p>
-                </div>
-              </div>
-
-              {/* 3 Step Flow */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">
-                    1
                   </span>
-                  <h3 className="font-bold text-white text-sm">Open Stockly</h3>
-                  <p className="text-slate-400 leading-relaxed">
-                    Open your Shopify Admin and click on the <strong>Stockly</strong> application in your apps list.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">
-                    2
-                  </span>
-                  <h3 className="font-bold text-white text-sm">Copy Token</h3>
-                  <p className="text-slate-400 leading-relaxed">
-                    Go to <strong>Settings &rarr; Kilo Optimizer Key</strong> and generate your secure access token.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">
-                    3
-                  </span>
-                  <h3 className="font-bold text-white text-sm">Start Optimizing</h3>
-                  <p className="text-slate-400 leading-relaxed">
-                    Paste your credentials below to batch-compress your products in pure browser RAM.
-                  </p>
-                </div>
-              </div>
-
-              {/* Connection Form */}
-              <form onSubmit={handleConnect} className="space-y-4 pt-2">
-                {authError && (
-                  <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>{authError}</span>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Store className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Shopify Store Domain</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={shopDomain}
-                      onChange={(e) => setShopDomain(e.target.value)}
-                      placeholder="your-brand.myshopify.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 transition-colors"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                      <Key className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Stockly Access Token</span>
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={accessToken}
-                      onChange={(e) => setAccessToken(e.target.value)}
-                      placeholder="stk_tok_xxxxxxxxxxxxxx"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="w-4 h-4" />
-                    )}
-                    <span>Connect &amp; Load Catalog</span>
-                  </button>
-
-                  {/* Sandbox Demo Button */}
-                  <button
-                    type="button"
-                    onClick={handleDemoConnect}
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors border border-slate-700"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Try Sample Catalog (Demo Sandbox)</span>
-                  </button>
-                </div>
-              </form>
-
-              {/* Zero database notice */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2.5">
-                <Info className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                <p>
-                  <strong>Zero Database Storage:</strong> Your Stockly credentials are encrypted in a temporary, HTTP-only signed browser cookie. Kilo's server never stores your access keys or images.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* VIEW 2: Connected Merchant Dashboard */}
-        {isAuthenticated === true && (
-          <div className="space-y-8 animate-fadeIn">
-            {/* Sync Success Banner */}
-            {syncSuccessMessage && (
-              <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                  <span>{syncSuccessMessage}</span>
                 </div>
                 <button
-                  onClick={() => setSyncSuccessMessage(null)}
-                  className="text-slate-400 hover:text-white"
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+                  title="Disconnect store"
+                  aria-label="Disconnect store"
                 >
-                  ✕
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLaunchDemo}
+                  className="px-4 py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Try Demo Store</span>
+                </button>
+                <a
+                  href="https://apps.shopify.com/stock-alert-4"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-xl font-bold text-xs bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+                >
+                  <Store className="w-4 h-4" />
+                  <span>Open from Stockly</span>
+                </a>
+              </div>
             )}
+          </div>
+        </div>
 
-            {/* Top Metrics Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-1">
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Products
-                </p>
-                <p className="text-2xl font-black text-white">
-                  {products.length}
+        {/* Main Content Area */}
+        {!connectedShop ? (
+          /* Unauthenticated Onboarding State */
+          <div className="py-16 flex flex-col items-center text-center max-w-2xl mx-auto">
+            <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 shadow-xl shadow-emerald-500/5">
+              <Store className="w-10 h-10" />
+            </div>
+
+            <h2 className="text-2xl font-bold text-white mb-3">
+              Connect Your Shopify Store via Stockly
+            </h2>
+            <p className="text-sm text-slate-400 leading-relaxed mb-8">
+              Kilo operates with zero inbound webhooks or database overhead. To optimize your store's media, open Stockly from your Shopify Admin and click <strong>"Optimize in Kilo"</strong>.
+            </p>
+
+            {/* Architecture Highlights */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full text-left mb-8">
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900/50">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 w-fit mb-2">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-white mb-1">100% Client-Side</h3>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  Images compress in your browser. No files or credentials stored in databases.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-1">
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Catalog Images
-                </p>
-                <p className="text-2xl font-black text-white">{allImages.length}</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-1">
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Original Payload
-                </p>
-                <p className="text-2xl font-black text-slate-300">
-                  {formatBytes(totalOriginalBytes)}
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900/50">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 w-fit mb-2">
+                  <History className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-white mb-1">1-Click Rollback</h3>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  Original photos are saved to your store's private metafields. Revert anytime.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-1">
-                <p className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
-                  Bytes Saved
-                </p>
-                <p className="text-2xl font-black text-emerald-300">
-                  {totalSavedBytes > 0 ? formatBytes(totalSavedBytes) : "0 KB"}
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900/50">
+                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 w-fit mb-2">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-white mb-1">Smart Alt Text</h3>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  Auto-generates SEO-rich alt text adhering strictly to Shopify's 512-character limit.
                 </p>
               </div>
             </div>
 
-            {/* Batch Compression Control Bar */}
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 space-y-4 shadow-xl">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-emerald-400" />
-                    <span>Batch Compression Settings</span>
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Runs 100% in your browser RAM using HTML5 Canvas WebP encoding.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-xs w-full lg:w-auto">
-                  {/* Format Selector */}
-                  <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl p-1.5">
-                    <span className="text-slate-400 px-2 font-medium">Format:</span>
-                    {(["webp", "jpeg", "png"] as const).map((fmt) => (
-                      <button
-                        key={fmt}
-                        type="button"
-                        onClick={() => setTargetFormat(fmt)}
-                        className={`px-3 py-1 rounded-lg font-bold uppercase text-[11px] transition-colors ${
-                          targetFormat === fmt
-                            ? "bg-emerald-500 text-slate-950 shadow-sm"
-                            : "text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        {fmt}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Quality Slider */}
-                  <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5">
-                    <span className="text-slate-400 font-medium">
-                      Quality: <strong className="text-white">{quality}%</strong>
-                    </span>
-                    <input
-                      type="range"
-                      min="50"
-                      max="95"
-                      step="5"
-                      value={quality}
-                      onChange={(e) => setQuality(Number(e.target.value))}
-                      className="w-24 accent-emerald-400 cursor-pointer"
-                    />
-                  </div>
-
-                  {/* 1-Click Optimize Button */}
-                  <button
-                    type="button"
-                    onClick={handleBatchOptimize}
-                    disabled={isOptimizing || allImages.length === 0}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                  >
-                    {isOptimizing ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Zap className="w-4 h-4" />
-                    )}
-                    <span>
-                      {isOptimizing
-                        ? `Optimizing ${progress.current}/${progress.total}...`
-                        : "1-Click Optimize All"}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress Bar when running */}
-              {isOptimizing && (
-                <div className="space-y-1.5 pt-2">
-                  <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-                    <div
-                      className="bg-emerald-400 h-full transition-all duration-300 rounded-full"
-                      style={{
-                        width: `${(progress.current / progress.total) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>
-                      Processing in browser memory (0 bytes uploaded to Kilo)...
-                    </span>
-                    <span>
-                      {progress.current} of {progress.total} assets
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Sync Action Banner if optimized */}
-              {optimizedCount > 0 && !isOptimizing && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 mt-4">
-                  <div className="space-y-0.5 text-center sm:text-left">
-                    <p className="text-xs font-bold text-white flex items-center justify-center sm:justify-start gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>
-                        Optimized {optimizedCount} images! Saved {formatBytes(totalSavedBytes)} total.
-                      </span>
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      Sync directly to your Shopify store via Stockly, or download locally.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSyncToShopify}
-                      disabled={isSyncing}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors shadow-sm disabled:opacity-50"
-                    >
-                      {isSyncing ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Store className="w-3.5 h-3.5" />
-                      )}
-                      <span>
-                        {isSyncing ? "Syncing..." : "Sync to Shopify via Stockly"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="button"
+                onClick={handleLaunchDemo}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Launch Interactive Demo Store</span>
+              </button>
+              <a
+                href="https://apps.shopify.com/stock-alert-4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
+              >
+                <Store className="w-4 h-4" />
+                <span>Install Stockly on Shopify</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
-
-            {/* Products Gallery */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-slate-400" />
-                  <span>Shopify Product Assets</span>
-                </h3>
-                <span className="text-xs text-slate-500">
-                  {products.length} Products Loaded
+          </div>
+        ) : (
+          /* Authenticated Merchant Dashboard */
+          <div className="pt-6 space-y-6">
+            {/* Metric Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm">
+                <span className="text-xs font-semibold text-slate-400 block mb-1">
+                  Catalog Products
+                </span>
+                <span className="text-2xl font-black text-white">
+                  {metrics.totalCount} Products
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  {metrics.totalImages} total product photos
                 </span>
               </div>
 
-              {isLoadingProducts ? (
-                <div className="p-12 text-center text-slate-400 text-xs">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400" />
-                  <span>Fetching catalog photography from Shopify...</span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {products.map((product) => (
-                    <div
-                      key={product.id}
-                      className="rounded-3xl border border-slate-800 bg-slate-900/40 p-5 space-y-4 hover:border-slate-700 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                            {product.vendor}
-                          </span>
-                          <h4 className="text-base font-bold text-white leading-tight">
-                            {product.title}
-                          </h4>
-                        </div>
-                        <span className="text-[11px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
-                          {product.images.length} images
-                        </span>
-                      </div>
+              <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm">
+                <span className="text-xs font-semibold text-slate-400 block mb-1">
+                  Optimized Media
+                </span>
+                <span className="text-2xl font-black text-emerald-400">
+                  {metrics.optimizedCount} / {metrics.totalCount}
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  {metrics.optimizedCount > 0
+                    ? `${Math.round((metrics.optimizedCount / metrics.totalCount) * 100)}% catalog coverage`
+                    : "Ready for WebP compression"}
+                </span>
+              </div>
 
-                      {/* Image Thumbnails Row */}
-                      <div className="grid grid-cols-2 gap-3">
-                        {product.images.map((img) => {
-                          const opt = optimizedResults[img.id];
+              <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm">
+                <span className="text-xs font-semibold text-slate-400 block mb-1">
+                  Safety &amp; Backup
+                </span>
+                <span className="text-2xl font-black text-sky-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-6 h-6" />
+                  <span>Metafield Protected</span>
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  Private store snapshot before every change
+                </span>
+              </div>
+            </div>
 
-                          return (
-                            <div
-                              key={img.id}
-                              className="rounded-2xl border border-slate-800/80 bg-slate-950 p-2.5 space-y-2 relative group overflow-hidden"
-                            >
-                              <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-900">
-                                <img
-                                  src={opt?.blobUrl || img.url}
-                                  alt={img.altText}
-                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                />
+            {/* Catalog Search & Actions Toolbar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") loadProducts(null, searchQuery);
+                  }}
+                  placeholder="Search products by title..."
+                  className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
 
-                                {opt && (
-                                  <div className="absolute top-1.5 right-1.5 bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-md">
-                                    -{opt.reductionPercent}%
-                                  </div>
-                                )}
-                              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => loadProducts()}
+                  disabled={isLoadingProducts}
+                  className="px-3.5 py-2 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  aria-label="Refresh catalog"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingProducts ? "animate-spin" : ""}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
 
-                              <div className="text-[10px] space-y-0.5">
-                                <div className="flex items-center justify-between text-slate-400">
-                                  <span>Original:</span>
-                                  <span className="font-mono text-slate-300">
-                                    {formatBytes(img.originalSizeBytes)}
+            {/* Products Catalog Table / List */}
+            {isLoadingProducts ? (
+              <div className="py-20 text-center flex flex-col items-center justify-center">
+                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mb-3" />
+                <p className="text-sm text-slate-400">Loading products from Shopify via Stockly...</p>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="py-16 text-center border border-dashed border-slate-800 rounded-3xl">
+                <FileImage className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-white mb-1">No products found</h3>
+                <p className="text-xs text-slate-400">
+                  {searchQuery ? `No products matched "${searchQuery}".` : "Your Shopify catalog appears to be empty."}
+                </p>
+              </div>
+            ) : (
+              <div className="border border-slate-800/80 rounded-3xl overflow-hidden bg-slate-900/40 shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                        <th className="py-3.5 px-4">Product</th>
+                        <th className="py-3.5 px-4">Media</th>
+                        <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4">Optimization</th>
+                        <th className="py-3.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {products.map((product) => {
+                        const isReverting = revertingProductId === product.id;
+
+                        return (
+                          <tr key={product.id} className="hover:bg-slate-800/20 transition-colors">
+                            {/* Product Info */}
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                  {product.featuredImageUrl || product.images[0]?.url ? (
+                                    <img
+                                      src={product.featuredImageUrl || product.images[0]?.url}
+                                      alt={product.title}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <FileImage className="w-5 h-5 text-slate-600" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="font-bold text-white block truncate max-w-xs text-sm">
+                                    {product.title}
+                                  </span>
+                                  <span className="text-slate-400 text-[11px] block truncate">
+                                    /{product.handle}
                                   </span>
                                 </div>
-
-                                {opt && (
-                                  <div className="flex items-center justify-between text-emerald-400 font-bold pt-0.5 border-t border-slate-800/60">
-                                    <span>{opt.format}:</span>
-                                    <span className="font-mono">
-                                      {formatBytes(opt.optimizedBytes)}
-                                    </span>
-                                  </div>
-                                )}
                               </div>
+                            </td>
 
-                              {opt && (
-                                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                            {/* Media Count */}
+                            <td className="py-4 px-4 text-slate-300">
+                              <span className="inline-flex items-center gap-1 font-semibold">
+                                <Layers className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{product.images.length} photos</span>
+                              </span>
+                            </td>
+
+                            {/* Product Status */}
+                            <td className="py-4 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  product.status === "ACTIVE"
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-slate-800 text-slate-400 border border-slate-700"
+                                }`}
+                              >
+                                {product.status}
+                              </span>
+                            </td>
+
+                            {/* Optimization Status Badge */}
+                            <td className="py-4 px-4">
+                              {product.optimized ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Optimized ({product.savingsPercent || 74}% saved)</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    Mode: {product.mode === "keep_both" ? "Appended" : "Replaced (Safe)"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
+                                  <AlertCircle className="w-3.5 h-3.5" />
+                                  <span>Unoptimized JPEG/PNG</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Action Buttons */}
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {product.optimized ? (
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      setCompareItem({
-                                        productId: product.id,
-                                        productTitle: product.title,
-                                        imageId: img.id,
-                                        altText: img.altText,
-                                        originalUrl: img.url,
-                                        originalBytes: img.originalSizeBytes,
-                                        optimizedUrl: opt.blobUrl,
-                                        optimizedBytes: opt.optimizedBytes,
-                                        reductionPercent: opt.reductionPercent,
-                                        format: opt.format,
-                                      })
-                                    }
-                                    className="inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/30 text-[10px] font-bold text-emerald-300 transition-colors shadow-sm"
-                                    title="Compare original vs compressed quality"
+                                    onClick={() => handleRevert(product)}
+                                    disabled={isReverting}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/30 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                                    title="Restore original photos from private backup"
                                   >
-                                    <Eye className="w-3 h-3 text-emerald-400" />
-                                    <span>Compare</span>
+                                    {isReverting ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <History className="w-3.5 h-3.5" />
+                                    )}
+                                    <span>Revert</span>
                                   </button>
-
-                                  <a
-                                    href={opt.blobUrl}
-                                    download={`${product.handle}-${img.id}.${targetFormat}`}
-                                    className="inline-flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-semibold text-slate-300 hover:text-white transition-colors border border-slate-800"
-                                    title="Download optimized image"
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenOptimizeModal(product)}
+                                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-colors shadow-sm flex items-center gap-1.5"
                                   >
-                                    <Download className="w-3 h-3" />
-                                    <span>Download</span>
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                                    <Zap className="w-3.5 h-3.5 fill-current" />
+                                    <span>Optimize</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Full-Screen Interactive Comparison Modal */}
-        {compareItem && (
-          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
-            <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-              {/* Modal Header */}
-              <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-950/80">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                      Visual Quality Inspection
-                    </span>
-                    <span className="text-xs text-slate-500 hidden sm:inline">•</span>
-                    <span className="text-xs text-slate-400 truncate hidden sm:inline">
-                      {compareItem.productTitle}
-                    </span>
+        {/* Modal / Drawer for In-Browser Compression & Smart Alt Text */}
+        {selectedProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+            <div className="relative w-full max-w-3xl rounded-3xl border border-slate-700 bg-slate-900 p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+              {/* Header */}
+              <div className="flex items-start justify-between pb-4 border-b border-slate-800">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 mb-1">
+                    <Zap className="w-4 h-4 fill-current" />
+                    <span>In-Browser Client-Side Optimization</span>
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold text-white truncate mt-0.5">
-                    {compareItem.altText || compareItem.productTitle}
-                  </h3>
+                  <h2 className="text-xl font-bold text-white">
+                    Optimize &amp; Sync: {selectedProduct.title}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {selectedProduct.images.length} photos ready for compression &amp; smart alt text enrichment.
+                  </p>
                 </div>
-
-                {/* Switcher & Close */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                  {/* Mode Toggle */}
-                  <div className="flex items-center bg-slate-900 border border-slate-700/80 rounded-xl p-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setCompareMode("side-by-side")}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition-colors ${
-                        compareMode === "side-by-side"
-                          ? "bg-emerald-500 text-slate-950 shadow-sm"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      <Columns className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Side-by-Side</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCompareMode("slider")}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold transition-colors ${
-                        compareMode === "slider"
-                          ? "bg-emerald-500 text-slate-950 shadow-sm"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      <Split className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Split Slider</span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setCompareItem(null)}
-                    className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                    title="Close preview (Esc)"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isProcessing) setSelectedProduct(null);
+                  }}
+                  disabled={isProcessing}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  aria-label="Close modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/40">
-                {compareMode === "side-by-side" ? (
-                  /* Side-by-Side View */
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 h-full items-stretch">
-                    {/* Left: Original */}
-                    <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-                      <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 text-xs">
-                        <span className="font-bold text-slate-300">
-                          Original (Uncompressed)
-                        </span>
-                        <span className="font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                          {formatBytes(compareItem.originalBytes)}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-h-[300px] sm:min-h-[420px] flex items-center justify-center p-3 bg-slate-950/80">
-                        <img
-                          src={compareItem.originalUrl}
-                          alt="Original uncompressed product"
-                          className="max-h-[50vh] w-auto max-w-full object-contain rounded-lg shadow-md"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Right: Compressed */}
-                    <div className="flex flex-col rounded-2xl border border-emerald-500/30 bg-slate-900/60 overflow-hidden shadow-lg shadow-emerald-500/5">
-                      <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-emerald-950/40 text-xs">
-                        <span className="font-bold text-emerald-300 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Kilo Compressed ({compareItem.format})</span>
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/30">
-                            {formatBytes(compareItem.optimizedBytes)}
-                          </span>
-                          <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded">
-                            -{compareItem.reductionPercent}%
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-h-[300px] sm:min-h-[420px] flex items-center justify-center p-3 bg-slate-950/80">
-                        <img
-                          src={compareItem.optimizedUrl}
-                          alt="Kilo optimized compressed product"
-                          className="max-h-[50vh] w-auto max-w-full object-contain rounded-lg shadow-md"
-                        />
-                      </div>
+              {/* Settings Form */}
+              <div className="py-5 space-y-5">
+                {/* Format & Quality selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-200 block mb-1.5">
+                      Target Format
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["webp", "jpeg", "png"] as const).map((fmt) => (
+                        <button
+                          key={fmt}
+                          type="button"
+                          onClick={() => setTargetFormat(fmt)}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition-colors ${
+                            targetFormat === fmt
+                              ? "bg-emerald-400 text-slate-950 shadow-sm"
+                              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                          }`}
+                        >
+                          {fmt.toUpperCase()}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ) : (
-                  /* Interactive Split Slider View */
-                  <div className="flex flex-col items-center justify-center space-y-4">
-                    <div className="relative w-full max-w-2xl aspect-[4/3] rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-xl">
-                      {/* Underneath: Compressed Image */}
-                      <img
-                        src={compareItem.optimizedUrl}
-                        alt="Compressed product"
-                        className="absolute inset-0 w-full h-full object-contain"
-                      />
-                      <div className="absolute top-3 right-3 z-10 bg-emerald-950/90 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm shadow-md">
-                        Compressed ({formatBytes(compareItem.optimizedBytes)})
-                      </div>
 
-                      {/* Overlaid: Original Image clipped by slider position */}
-                      <div
-                        className="absolute inset-0 overflow-hidden pointer-events-none"
-                        style={{ width: `${sliderPos}%` }}
-                      >
-                        <img
-                          src={compareItem.originalUrl}
-                          alt="Original product"
-                          className="absolute inset-0 w-full h-full object-contain max-w-none"
-                          style={{ width: "100%" }}
-                        />
-                        <div className="absolute top-3 left-3 bg-slate-900/90 border border-slate-700 text-slate-200 text-[11px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm shadow-md">
-                          Original ({formatBytes(compareItem.originalBytes)})
-                        </div>
-                      </div>
-
-                      {/* Divider Line & Drag Handle */}
-                      <div
-                        className="absolute top-0 bottom-0 w-0.5 bg-emerald-400 pointer-events-none"
-                        style={{ left: `${sliderPos}%` }}
-                      >
-                        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-lg border-2 border-white">
-                          <Split className="w-3.5 h-3.5" />
-                        </div>
-                      </div>
-
-                      {/* Interactive Drag input overlay */}
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={sliderPos}
-                        onChange={(e) => setSliderPos(Number(e.target.value))}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
-                        aria-label="Drag before and after split slider"
-                      />
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-xs font-bold text-slate-200">
+                        Compression Quality
+                      </label>
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        {quality}%
+                      </span>
                     </div>
+                    <input
+                      type="range"
+                      min={40}
+                      max={100}
+                      value={quality}
+                      onChange={(e) => setQuality(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                    />
+                  </div>
+                </div>
 
-                    <p className="text-xs text-slate-400 text-center">
-                      👈 Drag the slider horizontally to reveal original vs. compressed pixels in real-time 👉
+                {/* Shopify Replace Mode Selector */}
+                <div>
+                  <label className="text-xs font-bold text-slate-200 block mb-1.5">
+                    Shopify Media Attachment Mode
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSyncMode("replace")}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        syncMode === "replace"
+                          ? "border-emerald-400 bg-emerald-950/30 text-white"
+                          : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span>Replace Existing Media (Recommended)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-normal">
+                        Detaches original photos and sets fast WebP as primary. Originals safely snapshot into private metafields.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSyncMode("keep_both")}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        syncMode === "keep_both"
+                          ? "border-emerald-400 bg-emerald-950/30 text-white"
+                          : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
+                        <Layers className="w-4 h-4 text-sky-400" />
+                        <span>Keep Both (Append Optimized)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-normal">
+                        Appends the new optimized WebP photos without removing the older photos.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Smart Alt Text Section with 512 Char Limit */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Smart SEO Alt Text (Shopify limit: {SHOPIFY_MAX_ALT_TEXT_LENGTH} chars)</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Auto-generated from title &amp; variant
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                    {selectedProduct.images.map((img, idx) => {
+                      const currentVal =
+                        customAltTexts[img.mediaId] ||
+                        generateSmartAltText({
+                          productTitle: selectedProduct.title,
+                          imageIndex: idx,
+                          totalImages: selectedProduct.images.length,
+                        });
+                      const validation = validateShopifyAltText(currentVal);
+
+                      return (
+                        <div
+                          key={img.mediaId}
+                          className="flex items-center gap-3 p-3 rounded-2xl border border-slate-800 bg-slate-950"
+                        >
+                          <img
+                            src={img.url}
+                            alt=""
+                            className="w-12 h-12 object-cover rounded-xl bg-slate-900 flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1">
+                              <span>Photo #{idx + 1}</span>
+                              <span
+                                className={`font-mono font-semibold ${
+                                  validation.remaining < 30 ? "text-amber-400" : "text-emerald-400"
+                                }`}
+                              >
+                                {validation.length} / {SHOPIFY_MAX_ALT_TEXT_LENGTH}
+                              </span>
+                            </div>
+                            <input
+                              type="text"
+                              value={currentVal}
+                              maxLength={SHOPIFY_MAX_ALT_TEXT_LENGTH}
+                              onChange={(e) =>
+                                setCustomAltTexts((prev) => ({
+                                  ...prev,
+                                  [img.mediaId]: e.target.value,
+                                }))
+                              }
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-emerald-400"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Staged Results Preview if compressed */}
+                {Object.keys(stagedResults).length > 0 && (
+                  <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/20">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-300 mb-2">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Ready to Sync ({Object.keys(stagedResults).length} photos staged)</span>
+                      </span>
+                      <span>
+                        Savings: ~
+                        {Math.round(
+                          (Object.values(stagedResults).reduce((acc, i) => acc + i.reductionPercent, 0) /
+                            Object.values(stagedResults).length) || 0
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Images compressed to WebP and staged on Kilo's temporary CDN. Clicking "Sync to Shopify" will prompt Stockly and Shopify to ingest them permanently.
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Modal Footer */}
-              <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/90 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs text-slate-300 text-center sm:text-left">
-                  <span>Saved </span>
-                  <strong className="text-emerald-400 font-bold">
-                    {formatBytes(compareItem.originalBytes - compareItem.optimizedBytes)}
-                  </strong>
-                  <span> ({compareItem.reductionPercent}% byte reduction) with zero perceived loss in visual clarity.</span>
-                </div>
+              {/* Modal Actions */}
+              <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-slate-400">
+                  {isProcessing ? processStep : "Zero storage on Kilo servers."}
+                </span>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <a
-                    href={compareItem.optimizedUrl}
-                    download={`kilo-optimized-${compareItem.imageId}.${compareItem.format.toLowerCase()}`}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors shadow-md shadow-emerald-500/20"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download File</span>
-                  </a>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <button
                     type="button"
-                    onClick={() => setCompareItem(null)}
-                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
+                    onClick={() => setSelectedProduct(null)}
+                    disabled={isProcessing}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors disabled:opacity-50"
                   >
-                    Done
+                    Cancel
                   </button>
+
+                  {Object.keys(stagedResults).length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleCompressAndStage}
+                      disabled={isProcessing}
+                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-500/20"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Processing ({processProgress.current}/{processProgress.total})...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 fill-current" />
+                          <span>1. Compress &amp; Stage</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSyncToShopify}
+                      disabled={isProcessing}
+                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-500/20"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Syncing to Shopify...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Store className="w-4 h-4" />
+                          <span>2. Sync to Shopify via Stockly</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
