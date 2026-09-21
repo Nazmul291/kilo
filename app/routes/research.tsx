@@ -97,7 +97,7 @@ export default function ResearchPage() {
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
-            Benchmark Study: In-Browser Client-Side Image Compression vs. Cloud Processing Pipelines
+            Client-Side vs. Cloud Processing Image Compression Study
           </h1>
 
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-2">
