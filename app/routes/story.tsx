@@ -28,6 +28,11 @@ export function meta({}: Route.MetaArgs) {
       content:
         "about kilo, our story kilo, nazmulcodes, client side image compressor, free private image compression, stockly shopify sponsor",
     },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: "https://kilo.nazmulcodes.org/story",
+    },
     { property: "og:title", content: "Our Story — Why We Built Kilo" },
     {
       property: "og:description",

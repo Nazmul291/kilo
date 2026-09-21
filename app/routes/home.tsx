@@ -21,6 +21,11 @@ export function meta({}: Route.MetaArgs) {
     },
     { name: "robots", content: "index, follow" },
     { name: "keywords", content: "image compressor, media compression, webp converter, png to webp, jpeg optimizer, favicon ico generator, client-side compressor" },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: "https://kilo.nazmulcodes.org/",
+    },
     { property: "og:title", content: "Kilo — Turn Heavy MBs into Lightweight KBs" },
     {
       property: "og:description",

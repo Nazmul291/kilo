@@ -6,7 +6,7 @@ import { BookOpen, Clock, Calendar, ArrowRight, ArrowLeft, Tag } from "lucide-re
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Kilo Blog & Guides — Media Optimization, WebP & E-Commerce Speed" },
+    { title: "Media Optimization Blog & Image Guides — Kilo Tools" },
     {
       name: "description",
       content:
@@ -17,6 +17,11 @@ export function meta({}: Route.MetaArgs) {
       name: "keywords",
       content:
         "image compression guides, webp optimization, shopify store speed, core web vitals, client side image processing blog",
+    },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: "https://kilo.nazmulcodes.org/blog",
     },
     { property: "og:title", content: "Kilo Blog & Media Optimization Guides" },
     {

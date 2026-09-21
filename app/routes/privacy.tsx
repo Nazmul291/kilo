@@ -11,6 +11,11 @@ export function meta({}: Route.MetaArgs) {
       content:
         "Privacy Policy for Kilo. 100% client-side in-memory processing. Learn how we handle privacy, zero server storage, and Google AdSense advertising cookies.",
     },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: "https://kilo.nazmulcodes.org/privacy",
+    },
     { name: "robots", content: "index, follow" },
     { property: "og:title", content: "Privacy Policy — Kilo" },
     { property: "og:url", content: "https://kilo.nazmulcodes.org/privacy" },

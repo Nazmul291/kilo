@@ -15,8 +15,7 @@ import {
 export function meta({}: Route.MetaArgs) {
   return [
     {
-      title:
-        "Research Whitepaper: In-Browser Client-Side Compression vs Cloud APIs — Kilo",
+      title: "In-Browser Client-Side Compression Research | Kilo",
     },
     {
       name: "description",
@@ -28,6 +27,11 @@ export function meta({}: Route.MetaArgs) {
       name: "keywords",
       content:
         "in browser image compression benchmark, client side webp compression research, html5 canvas toBlob performance, cloud vs client image processing, ssim image compression study",
+    },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: "https://kilo.nazmulcodes.org/research",
     },
     {
       property: "og:title",

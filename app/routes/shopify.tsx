@@ -46,7 +46,7 @@ import {
 export function meta({}: Route.MetaArgs) {
   return [
     {
-      title: "Stockly & Shopify Merchant Optimizer — 1-Click Media Optimization — Kilo",
+      title: "Shopify Merchant Optimizer — Fast Media Tools | Kilo",
     },
     {
       name: "description",
@@ -58,6 +58,11 @@ export function meta({}: Route.MetaArgs) {
       name: "keywords",
       content:
         "shopify image optimizer, stockly shopify integration, batch compress shopify images, client side shopify webp converter, shopify alt text generator",
+    },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: "https://kilo.nazmulcodes.org/shopify",
     },
     {
       property: "og:title",

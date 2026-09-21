@@ -23,6 +23,11 @@ export function meta({ params }: Route.MetaArgs) {
     { name: "description", content: post.excerpt },
     { name: "robots", content: "index, follow" },
     { name: "keywords", content: post.keywords.join(", ") },
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: `https://kilo.nazmulcodes.org/blog/${post.slug}` 
+    },
     { property: "og:title", content: post.title },
     { property: "og:description", content: post.excerpt },
     { property: "og:url", content: `https://kilo.nazmulcodes.org/blog/${post.slug}` },
