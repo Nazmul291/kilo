@@ -18,7 +18,7 @@ export interface BlogPost {
 export const BLOG_POSTS: BlogPost[] = [
   {
     slug: "webp-vs-png-vs-jpeg",
-    title: "WebP vs PNG vs JPEG: The Definitive Guide | Kilo Blog",
+    title: "WebP vs PNG vs JPEG: The Definitive Guide",
     excerpt:
       "A comprehensive technical breakdown of WebP, PNG, and JPEG formats. Learn when to use lossless versus lossy compression to cut page weight by 60%+ while preserving crisp visual clarity.",
     category: "Format Comparison",
@@ -106,7 +106,7 @@ export const BLOG_POSTS: BlogPost[] = [
   },
   {
     slug: "why-client-side-compression-matters",
-    title: "Why Client-Side Image Compression Matters | Kilo Blog",
+    title: "Why Client-Side Image Compression Matters",
     excerpt:
       "Most free online file converters secretly upload your photos to remote cloud servers where they are cached and analyzed. Discover how Kilo's 100% client-side architecture enforces absolute privacy.",
     category: "Privacy & Security",
