@@ -18,7 +18,7 @@ export function meta({ params }: Route.MetaArgs) {
     return [{ title: "Post Not Found — Kilo" }];
   }
 
-  const pagetitle =  post.title.length > 48 ?  post.title : `${post.title} | Kilo Guide`;
+  const pagetitle =   `${post.title} | Kilo`;
 
   return [
     { title: pagetitle },
