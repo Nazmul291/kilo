@@ -40,7 +40,7 @@ export function FooterCredits() {
             </a>
             <span>•</span>
             <a
-              href="https://github.com/Nazmul291/kilo"
+              href="https://github.com/Nazmul291"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 hover:text-slate-300 transition-colors"
