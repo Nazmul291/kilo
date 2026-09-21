@@ -5,7 +5,7 @@ import { FileText, ArrowLeft, Shield, Mail, Globe } from "lucide-react";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Terms of Service — Kilo" },
+    { title: "Terms of Service | Kilo Media Compression" },
     {
       name: "description",
       content:

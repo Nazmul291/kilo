@@ -5,7 +5,7 @@ import { ShieldCheck, Cookie, ArrowLeft, Lock, Mail, ExternalLink, Globe } from 
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Privacy Policy — Kilo" },
+    { title: "Privacy Policy | Kilo Media Compression" },
     {
       name: "description",
       content:
