@@ -18,6 +18,14 @@ function stocklyOrigin(): string | null {
   }
 }
 
+// Google Analytics 4 (gtag.js) script and collection endpoints.
+const ANALYTICS_SCRIPT_SOURCES = ["https://www.googletagmanager.com"];
+const ANALYTICS_CONNECT_SOURCES = [
+  "https://*.google-analytics.com",
+  "https://*.analytics.google.com",
+  "https://*.googletagmanager.com",
+];
+
 const ADSENSE_SCRIPT_SOURCES = [
   "https://pagead2.googlesyndication.com",
   "https://*.googlesyndication.com",
@@ -44,14 +52,14 @@ export function buildContentSecurityPolicy(): string {
   const isDev = process.env.NODE_ENV !== "production";
   const stockly = stocklyOrigin();
 
-  const connectSrc = ["'self'", ...ADSENSE_CONNECT_SOURCES];
+  const connectSrc = ["'self'", ...ADSENSE_CONNECT_SOURCES, ...ANALYTICS_CONNECT_SOURCES];
   if (stockly) connectSrc.push(stockly);
   if (isDev) connectSrc.push("ws:", "wss:"); // Vite HMR
 
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     // 'unsafe-inline' is needed for React Router's inline hydration scripts.
-    "script-src": ["'self'", "'unsafe-inline'", ...ADSENSE_SCRIPT_SOURCES],
+    "script-src": ["'self'", "'unsafe-inline'", ...ADSENSE_SCRIPT_SOURCES, ...ANALYTICS_SCRIPT_SOURCES],
     "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
     "img-src": ["'self'", "data:", "blob:", "https:"],

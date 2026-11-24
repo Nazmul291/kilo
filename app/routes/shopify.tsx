@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import type { Route } from "./+types/shopify";
 import { HeaderNavigation } from "../components/HeaderNavigation";
+import { trackEvent } from "../lib/analytics";
 import { FooterCredits } from "../components/FooterCredits";
 import {
   fetchStocklyProducts,
@@ -433,6 +434,12 @@ export default function ShopifyOptimizer() {
       const syncRes = await syncProductMediaToStockly(syncPayload);
 
       if (syncRes.success) {
+        trackEvent("shopify_sync_completed", {
+          image_count: syncPayload.optimizedImages.length,
+          saved_percent: overallSavingsPercent,
+          sync_mode: syncMode,
+        });
+
         // Update product in local state
         setProducts((prev) =>
           prev.map((p) =>
@@ -459,6 +466,7 @@ export default function ShopifyOptimizer() {
         throw new Error(syncRes.error || "Failed to sync product media.");
       }
     } catch (err: any) {
+      trackEvent("shopify_sync_failed");
       setNotification({
         type: "error",
         message: err.message || "Failed to sync with Stockly.",

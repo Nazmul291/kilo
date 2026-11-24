@@ -5,6 +5,7 @@ import {
   type TargetFormat,
   type CompressionResult,
 } from "./compressor";
+import { sizeBucket, trackEvent } from "./analytics";
 
 export type ProcessingState = "idle" | "analyzing" | "compressing" | "ad_gate" | "completed" | "error";
 
@@ -74,6 +75,11 @@ export const useKiloStore = create<KiloState>((set, get) => ({
           fileAnalysis: analysis,
           processingState: "idle",
         });
+        trackEvent("file_selected", {
+          source_format: analysis.formatName,
+          size_bucket: sizeBucket(file.size),
+          already_optimized: analysis.isAlreadyOptimized,
+        });
       }
     } catch (err: any) {
       set({
@@ -109,7 +115,7 @@ export const useKiloStore = create<KiloState>((set, get) => ({
   },
 
   startCompression: async () => {
-    const { file, compressionLevel, targetFormat, compressedResult } = get();
+    const { file, fileAnalysis, compressionLevel, targetFormat, compressedResult } = get();
     if (!file) return;
 
     if (compressedResult?.blobUrl) {
@@ -130,6 +136,13 @@ export const useKiloStore = create<KiloState>((set, get) => ({
         targetFormat,
       });
 
+      trackEvent("compress_completed", {
+        source_format: fileAnalysis?.formatName ?? "unknown",
+        target_format: targetFormat,
+        compression_level: compressionLevel,
+        saved_percent: result.savedPercentage,
+      });
+
       // Transition to ad_gate with 5s countdown
       set({
         compressedResult: result,
@@ -138,6 +151,10 @@ export const useKiloStore = create<KiloState>((set, get) => ({
         adTimerActive: true,
       });
     } catch (err: any) {
+      trackEvent("compress_failed", {
+        source_format: fileAnalysis?.formatName ?? "unknown",
+        target_format: targetFormat,
+      });
       set({
         processingState: "error",
         errorMessage: err.message || "An error occurred during compression.",
@@ -148,6 +165,7 @@ export const useKiloStore = create<KiloState>((set, get) => ({
   decrementAdTimer: () => {
     const { adTimer } = get();
     if (adTimer <= 1) {
+      trackEvent("ad_gate_completed");
       set({ adTimer: 0, adTimerActive: false, processingState: "completed" });
     } else {
       set({ adTimer: adTimer - 1 });
@@ -156,6 +174,7 @@ export const useKiloStore = create<KiloState>((set, get) => ({
 
   closeAdGate: () => {
     // Compliant dismiss option: user can skip or close modal
+    trackEvent("ad_gate_skipped", { seconds_left: get().adTimer });
     set({ adTimer: 0, adTimerActive: false, processingState: "completed" });
   },
 

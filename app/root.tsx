@@ -10,6 +10,8 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { initAnalytics } from "./lib/analytics";
+import { CookieConsentBanner } from "./components/CookieConsentBanner";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -23,6 +25,16 @@ export const links: Route.LinksFunction = () => [
     href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
   },
 ];
+
+function GoogleAnalytics() {
+  // Root effects run after route effects, so pages that strip a token from
+  // the URL on mount (/shopify) have already done so when this runs.
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
+  return null;
+}
 
 function GoogleAdSense() {
   useEffect(() => {
@@ -62,13 +74,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <ScrollRestoration />
         <Scripts />
         <GoogleAdSense />
+        <GoogleAnalytics />
       </body>
     </html>
   );
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <CookieConsentBanner />
+    </>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

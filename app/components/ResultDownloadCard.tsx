@@ -1,6 +1,7 @@
 import React from "react";
 import { useKiloStore } from "../lib/store";
 import { formatBytes } from "../lib/compressor";
+import { trackEvent } from "../lib/analytics";
 import { Download, ArrowDown, Sparkles, RefreshCw, CheckCircle2 } from "lucide-react";
 
 export function ResultDownloadCard() {
@@ -20,6 +21,10 @@ export function ResultDownloadCard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    trackEvent("file_downloaded", {
+      target_format: compressedResult.format,
+      saved_percent: compressedResult.savedPercentage,
+    });
   };
 
   return (

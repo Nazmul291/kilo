@@ -48,7 +48,7 @@ export default function PrivacyPolicy() {
             Privacy Policy
           </h1>
           <p className="text-xs text-slate-400 mt-2">
-            Last Updated: September 16, 2026 • Effective Immediately
+            Last Updated: November 24, 2026 • Effective Immediately
           </p>
         </div>
 
@@ -119,30 +119,63 @@ export default function PrivacyPolicy() {
           {/* Section 3 */}
           <section className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 space-y-3">
             <h2 className="text-lg font-bold text-white">
-              3. GDPR &amp; CCPA Privacy Rights
+              3. Usage Analytics (Google Analytics)
             </h2>
             <p className="text-slate-300 text-sm">
-              Under international data regulations such as the General Data Protection Regulation (GDPR) and California Consumer Privacy Act (CCPA), you have the right to request information on any personal data held about you.
+              We use <strong>Google Analytics 4</strong> to understand how Kilo is used, for example how many people visit, which pages they read, and how often a compression finishes or a file is downloaded. This helps us decide what to improve.
             </p>
-            <p className="text-slate-300 text-sm">
-              Because Kilo does not collect, track, or store personal account profiles or uploaded media files, we hold no user data to transfer or sell.
-            </p>
+            <ul className="list-disc list-inside text-slate-300 text-sm space-y-2">
+              <li>
+                We send only general usage events such as the image format, the chosen output format, a rough file-size range and the percentage saved. We never send your images, file names, Shopify store details or access tokens.
+              </li>
+              <li>
+                Google Analytics may set cookies (such as <code className="bg-slate-800 px-1.5 py-0.5 rounded text-xs text-emerald-300">_ga</code>) and receives technical data like your approximate location, device and browser.
+              </li>
+              <li>
+                Choosing <strong>Essential Only</strong> in the cookie banner turns off analytics cookies. Visitors in the EEA, the UK and Switzerland are only measured with cookies after choosing <strong>Accept All</strong>.
+              </li>
+              <li>
+                You can also opt out of Google Analytics on all websites with the{" "}
+                <a
+                  href="https://tools.google.com/dlpage/gaoptout"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 underline font-medium inline-flex items-center gap-1"
+                >
+                  <span>Google Analytics opt-out add-on</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>.
+              </li>
+            </ul>
           </section>
 
           {/* Section 4 */}
           <section className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 space-y-3">
             <h2 className="text-lg font-bold text-white">
-              4. Local Storage Preferences
+              4. GDPR &amp; CCPA Privacy Rights
             </h2>
             <p className="text-slate-300 text-sm">
-              We use browser <code className="bg-slate-800 px-1.5 py-0.5 rounded text-xs text-emerald-300">localStorage</code> exclusively to save your cookie consent choice and user interface preferences, preventing repetitive prompts.
+              Under international data regulations such as the General Data Protection Regulation (GDPR) and California Consumer Privacy Act (CCPA), you have the right to request information on any personal data held about you.
+            </p>
+            <p className="text-slate-300 text-sm">
+              Kilo does not create user accounts or store uploaded media files, and we do not sell any data. Aggregated usage statistics are held by Google Analytics as described above.
             </p>
           </section>
 
           {/* Section 5 */}
           <section className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 space-y-3">
             <h2 className="text-lg font-bold text-white">
-              5. Contact Us
+              5. Local Storage Preferences
+            </h2>
+            <p className="text-slate-300 text-sm">
+              We use browser <code className="bg-slate-800 px-1.5 py-0.5 rounded text-xs text-emerald-300">localStorage</code> exclusively to save your cookie consent choice, user interface preferences and, if you connect a Shopify store, your Stockly session, preventing repetitive prompts.
+            </p>
+          </section>
+
+          {/* Section 6 */}
+          <section className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 space-y-3">
+            <h2 className="text-lg font-bold text-white">
+              6. Contact Us
             </h2>
             <p className="text-slate-300 text-sm">
               If you have any questions, feedback, or concerns regarding this Privacy Policy, feel free to contact the maintainer:

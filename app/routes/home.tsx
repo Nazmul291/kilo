@@ -9,7 +9,6 @@ import { AdGateModal } from "../components/AdGateModal";
 import { ResultDownloadCard } from "../components/ResultDownloadCard";
 import { StocklyFeaturedCard } from "../components/StocklyFeaturedCard";
 import { FooterCredits } from "../components/FooterCredits";
-import { CookieConsentBanner } from "../components/CookieConsentBanner";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -71,9 +70,6 @@ export default function Home() {
 
       {/* Component 10: FooterCredits (contains crawlable /privacy and /terms links) */}
       <FooterCredits />
-
-      {/* GDPR / AdSense Cookie Consent Banner */}
-      <CookieConsentBanner />
     </div>
   );
 }

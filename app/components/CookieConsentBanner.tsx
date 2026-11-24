@@ -1,26 +1,34 @@
 import React, { useEffect, useState } from "react";
 import { Cookie, X } from "lucide-react";
+import {
+  CONSENT_STORAGE_KEY,
+  getStoredConsent,
+  updateAnalyticsConsent,
+  type ConsentChoice,
+} from "../lib/analytics";
 
 export function CookieConsentBanner() {
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
     // Check if user has already chosen cookie preferences
-    const consent = localStorage.getItem("kilo_cookie_consent");
-    if (!consent) {
+    if (!getStoredConsent()) {
       setShowBanner(true);
     }
   }, []);
 
-  const handleAcceptAll = () => {
-    localStorage.setItem("kilo_cookie_consent", "all");
+  const saveChoice = (choice: ConsentChoice) => {
+    try {
+      localStorage.setItem(CONSENT_STORAGE_KEY, choice);
+    } catch {
+      // Storage blocked: the choice still applies for this page view.
+    }
+    updateAnalyticsConsent(choice);
     setShowBanner(false);
   };
 
-  const handleEssentialOnly = () => {
-    localStorage.setItem("kilo_cookie_consent", "essential");
-    setShowBanner(false);
-  };
+  const handleAcceptAll = () => saveChoice("all");
+  const handleEssentialOnly = () => saveChoice("essential");
 
   if (!showBanner) return null;
 
@@ -37,7 +45,7 @@ export function CookieConsentBanner() {
               Cookie &amp; Privacy Choices
             </p>
             <p className="text-slate-400 leading-relaxed">
-              We use cookies and Google AdSense to personalize ads and keep Kilo free. Your uploaded media files are 100% private and never leave your device.
+              We use cookies for Google AdSense and Google Analytics to keep Kilo free and understand how it is used. Your uploaded media files are 100% private and never leave your device.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 mt-3">
