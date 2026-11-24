@@ -2,6 +2,10 @@
  * Single source of truth for the security headers sent with HTML documents.
  * The CSP allows exactly what the app loads: its own assets, Google Fonts,
  * Google AdSense, and the configured Stockly API.
+ *
+ * Prerendered pages (see react-router.config.ts) are static files and never
+ * pass through entry.server, so on Vercel their CSP comes from vercel.json.
+ * Keep that copy in sync with this one (minus the Stockly origin).
  */
 
 function stocklyOrigin(): string | null {
