@@ -54,6 +54,8 @@ export function meta({}: Route.MetaArgs) {
         "Connect your Shopify store via Stockly to batch-optimize product photography directly in your browser. Unidirectional API, zero database storage, smart SEO alt text, and 1-click rollback.",
     },
     { name: "robots", content: "index, follow" },
+    // A Stockly token may arrive in the URL: never leak it via the Referer header.
+    { name: "referrer", content: "no-referrer" },
     {
       name: "keywords",
       content:
@@ -143,9 +145,11 @@ export default function ShopifyOptimizer() {
 
   // Initialize session from URL query or localStorage on mount
   useEffect(() => {
+    // Prefer the URL fragment (never sent to servers); accept the query for compatibility.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const params = new URLSearchParams(window.location.search);
-    const urlToken = params.get("token");
-    const urlShop = params.get("shop");
+    const urlToken = hashParams.get("token") || params.get("token");
+    const urlShop = hashParams.get("shop") || params.get("shop");
 
     if (urlToken && urlShop) {
       setStoredSession(urlToken, urlShop);

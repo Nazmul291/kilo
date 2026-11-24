@@ -1,47 +1,63 @@
 import type { Route } from "./+types/auth.shopify";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Store, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { HeaderNavigation } from "../components/HeaderNavigation";
 import { FooterCredits } from "../components/FooterCredits";
+import { setStoredSession } from "../lib/stockly-client";
 
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Authenticating with Stockly — Kilo" },
     { name: "robots", content: "noindex, nofollow" },
+    // The URL carries a session token: never leak it via the Referer header.
+    { name: "referrer", content: "no-referrer" },
   ];
 }
 
-export function loader({ request }: Route.LoaderArgs) {
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-  const token = url.searchParams.get("token");
-  const source = url.searchParams.get("source") || "stockly";
+type AuthStatus = "pending" | "connecting" | "missing";
 
+/**
+ * Reads shop/token from the URL fragment (preferred: never sent to any server)
+ * or, for backwards compatibility, from the query string.
+ */
+function readCredentialsFromLocation(): { shop: string | null; token: string | null } {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(window.location.search);
   return {
-    shop,
-    token,
-    source,
-    hasCredentials: Boolean(shop && token),
+    shop: hash.get("shop") || query.get("shop"),
+    token: hash.get("token") || query.get("token"),
   };
 }
 
-export default function AuthShopify({ loaderData }: Route.ComponentProps) {
-  const { shop, token, hasCredentials } = loaderData;
+export default function AuthShopify() {
+  const [status, setStatus] = useState<AuthStatus>("pending");
+  const [shop, setShop] = useState<string | null>(null);
+  // Read once: StrictMode re-runs effects after the URL has been stripped.
+  const credsRef = useRef<{ shop: string | null; token: string | null } | null>(null);
 
   useEffect(() => {
-    if (hasCredentials && shop && token) {
-      // Store in localStorage as specified in the Kilo ↔ Stockly integration contract
-      localStorage.setItem("stockly_jwt", token);
-      localStorage.setItem("stockly_shop", shop);
+    credsRef.current ??= readCredentialsFromLocation();
+    const creds = credsRef.current;
 
-      // Brief pause to ensure localStorage is flushed before redirect
-      const timer = setTimeout(() => {
-        window.location.href = `/shopify?connected=true&shop=${encodeURIComponent(shop)}`;
-      }, 600);
+    // Strip credentials from the address bar and history immediately.
+    window.history.replaceState({}, "", window.location.pathname);
 
-      return () => clearTimeout(timer);
+    if (!creds.shop || !creds.token) {
+      setStatus("missing");
+      return;
     }
-  }, [hasCredentials, shop, token]);
+
+    setStoredSession(creds.token, creds.shop);
+    setShop(creds.shop);
+    setStatus("connecting");
+
+    const timer = setTimeout(() => {
+      window.location.replace(`/shopify?connected=true&shop=${encodeURIComponent(creds.shop!)}`);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const hasCredentials = status !== "missing";
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-300">
@@ -55,7 +71,7 @@ export default function AuthShopify({ loaderData }: Route.ComponentProps) {
             </div>
 
             <h1 className="text-2xl font-bold text-white mb-2">
-              Connecting to {shop}
+              {shop ? `Connecting to ${shop}` : "Connecting to Stockly"}
             </h1>
             <p className="text-sm text-slate-400 mb-6">
               Validating HMAC-SHA256 Single Sign-On session from Stockly...
