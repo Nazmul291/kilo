@@ -1,4 +1,5 @@
 import React from "react";
+import kiloLogoUrl from "../assets/logo.png";
 
 export function KiloLogo({
   className = "w-9 h-9",
@@ -9,9 +10,9 @@ export function KiloLogo({
 }) {
   return (
     <div className="flex items-center gap-2.5 select-none">
-      {/* Kilo Logo from public/logo.png */}
+      {/* Kilo logo (hashed Vite asset, cached long-term) */}
       <img
-        src="/logo.png"
+        src={kiloLogoUrl}
         alt="Kilo Logo"
         width="36"
         height="36"

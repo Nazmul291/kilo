@@ -10,10 +10,12 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import faviconUrl from "./assets/favicon.ico";
 import { initAnalytics } from "./lib/analytics";
 import { CookieConsentBanner } from "./components/CookieConsentBanner";
 
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: faviconUrl },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",

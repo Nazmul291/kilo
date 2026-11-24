@@ -1,4 +1,6 @@
 import type { Route } from "./+types/story";
+import nazmulcodesLogoUrl from "../assets/nazmulcodes-logo.svg";
+import stocklyLogoUrl from "../assets/stockly-logo.png";
 import { HeaderNavigation } from "../components/HeaderNavigation";
 import { FooterCredits } from "../components/FooterCredits";
 import {
@@ -13,6 +15,8 @@ import {
   Layers,
   Award,
 } from "lucide-react";
+
+export { staticPageHeaders as headers } from "../lib/cache-headers";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -184,7 +188,7 @@ export default function OurStory() {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 p-2 flex items-center justify-center">
                     <img
-                      src="/nazmulcodes-logo.svg"
+                      src={nazmulcodesLogoUrl}
                       alt="NazmulCodes"
                       className="w-full h-full object-contain"
                     />
@@ -213,7 +217,7 @@ export default function OurStory() {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 p-2 flex items-center justify-center">
                     <img
-                      src="/stockly-logo.png"
+                      src={stocklyLogoUrl}
                       alt="Stockly Logo"
                       className="w-full h-full object-contain"
                     />

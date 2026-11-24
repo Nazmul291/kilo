@@ -1,3 +1,5 @@
+import nazmulcodesLogoUrl from "../assets/nazmulcodes-logo.svg";
+
 export interface BlogPost {
   slug: string;
   title: string;
@@ -27,7 +29,7 @@ export const BLOG_POSTS: BlogPost[] = [
     author: {
       name: "Nazmul Hawlader",
       role: "Senior Full-Stack & Shopify Engineer",
-      avatar: "/nazmulcodes-logo.svg",
+      avatar: nazmulcodesLogoUrl,
       url: "https://www.nazmulcodes.org/",
     },
     keywords: [
@@ -115,7 +117,7 @@ export const BLOG_POSTS: BlogPost[] = [
     author: {
       name: "Nazmul Hawlader",
       role: "Senior Full-Stack & Shopify Engineer",
-      avatar: "/nazmulcodes-logo.svg",
+      avatar: nazmulcodesLogoUrl,
       url: "https://www.nazmulcodes.org/",
     },
     keywords: [
@@ -170,7 +172,7 @@ export const BLOG_POSTS: BlogPost[] = [
     author: {
       name: "Nazmul Hawlader",
       role: "Senior Full-Stack & Shopify Engineer",
-      avatar: "/nazmulcodes-logo.svg",
+      avatar: nazmulcodesLogoUrl,
       url: "https://www.nazmulcodes.org/",
     },
     keywords: [

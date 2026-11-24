@@ -3,19 +3,35 @@
  * The CSP allows exactly what the app loads: its own assets, Google Fonts,
  * Google AdSense, and the configured Stockly API.
  *
- * Prerendered pages (see react-router.config.ts) are static files and never
- * pass through entry.server, so on Vercel their CSP comes from vercel.json.
- * Keep that copy in sync with this one (minus the Stockly origin).
+ * vercel.json carries a copy of this CSP (minus the Stockly origins) for
+ * responses that don't pass through entry.server, such as files in public/.
+ * Keep the two in sync.
  */
 
-function stocklyOrigin(): string | null {
-  const raw = process.env.STOCKLY_API_URL || process.env.VITE_STOCKLY_API_URL;
+import { DEFAULT_STOCKLY_URL } from "./stockly-client";
+
+function toOrigin(raw: string | undefined): string | null {
   if (!raw) return null;
   try {
     return new URL(raw).origin;
   } catch {
     return null;
   }
+}
+
+/**
+ * Every origin the browser may call for the Stockly API. The browser bundle
+ * resolves VITE_STOCKLY_API_URL at build time and otherwise falls back to
+ * DEFAULT_STOCKLY_URL, so both must be allowed even when no env var is set.
+ */
+function stocklyOrigins(): string[] {
+  const candidates = [
+    import.meta.env.VITE_STOCKLY_API_URL || DEFAULT_STOCKLY_URL,
+    process.env.STOCKLY_API_URL,
+    process.env.VITE_STOCKLY_API_URL,
+  ];
+  const origins = candidates.map(toOrigin).filter((o): o is string => o !== null);
+  return [...new Set(origins)];
 }
 
 // Google Analytics 4 (gtag.js) script and collection endpoints.
@@ -50,10 +66,9 @@ const ADSENSE_CONNECT_SOURCES = [
 
 export function buildContentSecurityPolicy(): string {
   const isDev = process.env.NODE_ENV !== "production";
-  const stockly = stocklyOrigin();
 
   const connectSrc = ["'self'", ...ADSENSE_CONNECT_SOURCES, ...ANALYTICS_CONNECT_SOURCES];
-  if (stockly) connectSrc.push(stockly);
+  connectSrc.push(...stocklyOrigins());
   if (isDev) connectSrc.push("ws:", "wss:"); // Vite HMR
 
   const directives: Record<string, string[]> = {

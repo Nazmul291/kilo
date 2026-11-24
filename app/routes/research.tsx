@@ -12,6 +12,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+export { staticPageHeaders as headers } from "../lib/cache-headers";
+
 export function meta({}: Route.MetaArgs) {
   return [
     {

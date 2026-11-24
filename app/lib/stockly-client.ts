@@ -10,6 +10,8 @@
  * Resolves dynamically from environment variables (VITE_STOCKLY_API_URL or STOCKLY_API_URL)
  * and falls back to production (https://stockly.nazmulcodes.org).
  */
+export const DEFAULT_STOCKLY_URL = "https://stockly.nazmulcodes.org";
+
 export function getStocklyBaseUrl(): string {
   if (typeof import.meta !== "undefined" && import.meta.env?.VITE_STOCKLY_API_URL) {
     return import.meta.env.VITE_STOCKLY_API_URL.replace(/\/+$/, "");
@@ -20,7 +22,7 @@ export function getStocklyBaseUrl(): string {
   if (typeof process !== "undefined" && process.env?.VITE_STOCKLY_API_URL) {
     return process.env.VITE_STOCKLY_API_URL.replace(/\/+$/, "");
   }
-  return "https://stockly.nazmulcodes.org";
+  return DEFAULT_STOCKLY_URL;
 }
 
 export const STOCKLY_PROD_URL = getStocklyBaseUrl();

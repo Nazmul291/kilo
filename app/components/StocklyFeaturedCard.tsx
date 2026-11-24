@@ -1,4 +1,5 @@
 import React from "react";
+import stocklyLogoUrl from "../assets/stockly-logo.png";
 import { ArrowUpRight, CheckCircle2, Store, Globe, Sparkles } from "lucide-react";
 
 export interface SponsorApp {
@@ -22,7 +23,7 @@ const SPONSOR_APPS: SponsorApp[] = [
     category: "Official Shopify Embedded App",
     description:
       "Monitor merchant inventory in real-time, automatically hide out-of-stock items to prevent overselling, and dispatch automated multi-channel low-stock alerts.",
-    logoUrl: "/stockly-logo.png",
+    logoUrl: stocklyLogoUrl,
     badge: "Featured Sponsor",
     rating: "4.9 ★ Rating",
     appStoreUrl: "https://apps.shopify.com/stock-alert-4",

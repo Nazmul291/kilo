@@ -1,4 +1,5 @@
 import React from "react";
+import nazmulcodesLogoUrl from "../assets/nazmulcodes-logo.svg";
 import { KiloLogo } from "./KiloLogo";
 import { ExternalLink } from "lucide-react";
 
@@ -58,7 +59,7 @@ export function HeaderNavigation() {
             className="group flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium text-slate-300 bg-slate-900/80 border border-slate-700/60 hover:border-emerald-500/50 hover:bg-slate-800 transition-all duration-200"
           >
             <img
-              src="/nazmulcodes-logo.svg"
+              src={nazmulcodesLogoUrl}
               alt="NazmulCodes Logo"
               width="16"
               height="16"
