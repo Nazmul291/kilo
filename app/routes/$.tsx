@@ -1,4 +1,3 @@
-import { data } from "react-router";
 import type { Route } from "./+types/$";
 import { HeaderNavigation } from "../components/HeaderNavigation";
 import { FooterCredits } from "../components/FooterCredits";
@@ -9,10 +8,6 @@ export function meta({}: Route.MetaArgs) {
     { title: "Page Not Found — Kilo" },
     { name: "robots", content: "noindex" },
   ];
-}
-
-export async function loader() {
-  return data(null, { status: 404 });
 }
 
 export default function NotFound() {

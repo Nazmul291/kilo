@@ -12,8 +12,6 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-export { staticPageHeaders as headers } from "../lib/cache-headers";
-
 export function meta({ params }: Route.MetaArgs) {
   const post = getBlogPostBySlug(params.slug);
   if (!post) {

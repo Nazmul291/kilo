@@ -44,6 +44,15 @@ import {
   Layers,
 } from "lucide-react";
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function meta({}: Route.MetaArgs) {
   return [
     {
@@ -299,9 +308,10 @@ export default function ShopifyOptimizer() {
         const img = selectedProduct.images[i];
         setProcessProgress({ current: i + 1, total: selectedProduct.images.length });
 
-        // 1. Fetch image via proxy to bypass cross-origin canvas tainting
-        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(img.url)}`;
-        const imageRes = await fetch(proxyUrl);
+        // 1. Fetch the image straight from Shopify's CDN. It sends
+        //    Access-Control-Allow-Origin: *, so a CORS fetch gives us bytes the
+        //    canvas can read without any Kilo server in between.
+        const imageRes = await fetch(img.url, { mode: "cors", credentials: "omit" });
         if (!imageRes.ok) throw new Error(`Could not load image ${img.mediaId}`);
         const imageBlob = await imageRes.blob();
 
@@ -334,29 +344,9 @@ export default function ShopifyOptimizer() {
 
         URL.revokeObjectURL(objectUrl);
 
-        // Convert Blob to Base64 (directly usable by Stockly proxy)
-        const base64DataUrl = canvas.toDataURL(mimeType, quality / 100);
-
-        // 3. Stage the compressed image on Kilo temporary staging CDN
-        setProcessStep(`Staging image ${i + 1} of ${selectedProduct.images.length}...`);
-        
-        let stagedUrl = "";
-        try {
-          const formData = new FormData();
-          formData.append("file", compressedBlob, `opt-${img.mediaId}.${targetFormat}`);
-
-          const stageRes = await fetch("/api/staged-media", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (stageRes.ok) {
-            const stageData = await stageRes.json();
-            stagedUrl = stageData.url || "";
-          }
-        } catch (e) {
-          console.warn("Local staging CDN skipped, using direct base64 upload:", e);
-        }
+        // 3. Base64 of the compressed bytes: Stockly uploads this to Shopify.
+        const base64DataUrl = await blobToDataUrl(compressedBlob);
+        const stagedUrl = "";
 
         const originalBytes = img.originalSizeBytes || imageBlob.size;
         const optimizedBytes = compressedBlob.size;
@@ -1156,7 +1146,7 @@ export default function ShopifyOptimizer() {
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Images compressed to WebP and staged on Kilo's temporary CDN. Clicking "Sync to Shopify" will prompt Stockly and Shopify to ingest them permanently.
+                      Images compressed in your browser and ready. Clicking "Sync to Shopify" sends them to Stockly, which uploads them to your store.
                     </p>
                   </div>
                 )}

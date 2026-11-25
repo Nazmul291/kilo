@@ -3,8 +3,6 @@ import { HeaderNavigation } from "../components/HeaderNavigation";
 import { FooterCredits } from "../components/FooterCredits";
 import { FileText, ArrowLeft, Shield, Mail, Globe } from "lucide-react";
 
-export { staticPageHeaders as headers } from "../lib/cache-headers";
-
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Terms of Service | Kilo Media Compression" },

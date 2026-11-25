@@ -4,8 +4,6 @@ import { FooterCredits } from "../components/FooterCredits";
 import { getAllBlogPosts } from "../lib/blog-data";
 import { BookOpen, Clock, Calendar, ArrowRight, ArrowLeft, Tag } from "lucide-react";
 
-export { staticPageHeaders as headers } from "../lib/cache-headers";
-
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Media Optimization Blog & Image Guides — Kilo Tools" },

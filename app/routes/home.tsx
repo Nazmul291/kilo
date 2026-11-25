@@ -10,8 +10,6 @@ import { ResultDownloadCard } from "../components/ResultDownloadCard";
 import { StocklyFeaturedCard } from "../components/StocklyFeaturedCard";
 import { FooterCredits } from "../components/FooterCredits";
 
-export { staticPageHeaders as headers } from "../lib/cache-headers";
-
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Kilo — Fast Media Compression & Format Converter" },
